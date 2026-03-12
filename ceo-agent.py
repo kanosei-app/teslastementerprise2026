@@ -60,7 +60,7 @@ if __name__ == "__main__":
     my_ceo = CeoAgent(name="Tesla STEM CEO")
     
     # 2. Get the list of subordinate agents
-    company_agents = ["PM Agent", "Engineering/Development Agent", "Marketing Agent", "HR Agent", "Sales Agent", "Finance Agent"]
+    company_agents = ["PM Agent", "Engineering Agent", "Marketing Agent", "HR Agent", "Sales Agent", "Finance Agent", "UI Agent"]
     
     # 3. Run the oversight process
     my_ceo.oversee_company(company_agents)
