@@ -65,3 +65,21 @@ CEO Agent is the central decision-maker. It delegates tasks, resolves conflicts,
         RETURN FinalResponse
 
     END PROCEDURE
+
+# Instructions and Necessities
+
+# Necessities
+- IDE with python (preferably **VS Code**)
+- **Ollama** and **Mistral**
+- **Docker**
+
+## Instructions
+What to do to start working and pick up exactly where you left off:
+
+- Open **Docker Desktop** (make sure it turns green)
+- Activate your env: `source .venv/Scripts/activate`
+- Wake up the AI: `docker start ollama-enterprise`
+
+What to do to end your work session
+
+- Deactivate you env: `deactivate`
