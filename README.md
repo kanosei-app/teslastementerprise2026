@@ -12,55 +12,56 @@ CEO Agent is the central decision-maker. It delegates tasks, resolves conflicts,
 - Behaviors: Uses reasoning chains for prioritization; prompts like "Prioritize based on ROI >20%." Tools: Analytics dashboard, email notifier.
 
 ## Pseoudocode of CEO Flow
-PROCEDURE Execute_CEO_Reasoning_Loop(IncomingEvent)
 
-    CurrentContext <- Retrieve_Agent_Memory()
-    CompanyState <- Fetch_Dashboard_KPIs()
+    PROCEDURE Execute_CEO_Reasoning_Loop(IncomingEvent)
     
-    PromptInput <- Combine_Data(IncomingEvent, CurrentContext, CompanyState)
-    
-    ReasoningResponse <- Prompt_LLM(PromptInput, "JSON_Format")
-    
-    ParsedPlan <- Extract_Plan(ReasoningResponse)
-    
-    Save_To_Memory(ParsedPlan.Thought)
-    
-    ActionResults <- Initialize_Empty_List()
-    
-    FOR EACH Action IN ParsedPlan.Actions DO
-    
-        SWITCH Action.Name DO
+        CurrentContext <- Retrieve_Agent_Memory()
+        CompanyState <- Fetch_Dashboard_KPIs()
         
-            CASE "DelegateTask":
-                Result <- Route_To_Agent(Action.Parameters.Department, Action.Parameters.Directive)
-                Append Result TO ActionResults
-                
-            CASE "ReplanBudget":
-                Result <- Adjust_Financial_Parameters(Action.Parameters)
-                Append Result TO ActionResults
-                
-            CASE "SummarizeCycle":
-                Result <- Generate_Executive_Report(Action.Parameters)
-                Append Result TO ActionResults
-                
-            DEFAULT:
-                Result <- Log_Unknown_Action(Action.Name)
-                Append Result TO ActionResults
-                
-        END SWITCH
+        PromptInput <- Combine_Data(IncomingEvent, CurrentContext, CompanyState)
         
-    END FOR
-    
-    IF Requires_Further_Reasoning(ActionResults) IS TRUE THEN
-        RETURN Execute_CEO_Reasoning_Loop(ActionResults)
-    END IF
-    
-    Update_Dashboard_Status("Idle", ParsedPlan.Thought)
-    
-    FinalResponse <- Prompt_LLM_For_Response(ActionResults)
-    
-    Save_To_Memory(IncomingEvent, FinalResponse)
-    
-    RETURN FinalResponse
+        ReasoningResponse <- Prompt_LLM(PromptInput, "JSON_Format")
+        
+        ParsedPlan <- Extract_Plan(ReasoningResponse)
+        
+        Save_To_Memory(ParsedPlan.Thought)
+        
+        ActionResults <- Initialize_Empty_List()
+        
+        FOR EACH Action IN ParsedPlan.Actions DO
+        
+            SWITCH Action.Name DO
+            
+                CASE "DelegateTask":
+                    Result <- Route_To_Agent(Action.Parameters.Department, Action.Parameters.Directive)
+                    Append Result TO ActionResults
+                    
+                CASE "ReplanBudget":
+                    Result <- Adjust_Financial_Parameters(Action.Parameters)
+                    Append Result TO ActionResults
+                    
+                CASE "SummarizeCycle":
+                    Result <- Generate_Executive_Report(Action.Parameters)
+                    Append Result TO ActionResults
+                    
+                DEFAULT:
+                    Result <- Log_Unknown_Action(Action.Name)
+                    Append Result TO ActionResults
+                    
+            END SWITCH
+            
+        END FOR
+        
+        IF Requires_Further_Reasoning(ActionResults) IS TRUE THEN
+            RETURN Execute_CEO_Reasoning_Loop(ActionResults)
+        END IF
+        
+        Update_Dashboard_Status("Idle", ParsedPlan.Thought)
+        
+        FinalResponse <- Prompt_LLM_For_Response(ActionResults)
+        
+        Save_To_Memory(IncomingEvent, FinalResponse)
+        
+        RETURN FinalResponse
 
-END PROCEDURE
+    END PROCEDURE
