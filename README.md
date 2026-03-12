@@ -68,7 +68,7 @@ CEO Agent is the central decision-maker. It delegates tasks, resolves conflicts,
 
 # Instructions and Necessities
 
-# Necessities
+## Necessities
 - IDE with python (preferably **VS Code**)
 - **Ollama** and **Mistral**
 - **Docker**
