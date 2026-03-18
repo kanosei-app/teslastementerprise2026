@@ -66,3 +66,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+#Run with: "python test_agent.py" -i or "python test_agent.py "Launch new SaaS product in Q3""
+#Ran from terminal.
