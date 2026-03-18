@@ -1,6 +1,6 @@
 import argparse
 import sys
-# TODO: Import your actual agent class here
+# TODO: Impor actual agent class CEOO here
 # from core.agents import CEOAgent
 
 class MockCEOAgent:
