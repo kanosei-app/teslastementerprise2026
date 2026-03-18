@@ -66,6 +66,30 @@ CEO Agent is the central decision-maker. It delegates tasks, resolves conflicts,
 
     END PROCEDURE
 
+## Pseudocode of Advisor Agent (Feedback Loop)
+    PROCEDURE Execute_Advisor_Verification(ProposedPlan)
+
+    CompanyState <- Fetch_Dashboard_KPIs()
+    StrategicGoals <- Retrieve_Core_Directives()
+    
+    RiskAssessment <- Calculate_Plan_Risk(ProposedPlan, CompanyState)
+    
+    PromptInput <- Combine_Data(ProposedPlan, CompanyState, StrategicGoals, RiskAssessment)
+    
+    AdvisorResponse <- Prompt_LLM(PromptInput, "JSON_Format")
+    
+    ParsedFeedback <- Extract_Feedback(AdvisorResponse)
+    
+    Save_To_Audit_Log(ProposedPlan, ParsedFeedback)
+    
+    IF ParsedFeedback.IsApproved EQUALS TRUE THEN
+        RETURN Construct_Approval(ParsedFeedback.Notes)
+    ELSE
+        RETURN Construct_Rejection(ParsedFeedback.Critique, ParsedFeedback.SuggestedModifications)
+    END IF
+
+END PROCEDURE
+
 # Instructions and Necessities
 
 ## Necessities
