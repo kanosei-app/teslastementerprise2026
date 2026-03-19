@@ -1,22 +1,102 @@
-from brain_system import BrainWrapper
+#from brain_system import BrainWrapper, AgentWrapper
+from langchain.tools import tool
+from langchain.agents import create_agent
+from langchain_ollama import ChatOllama
+import json
 
-def recieveInstruction():
-    return
+PARSER_AGENT_PROMPT = (
+    "You are a parser agent."
+    "You assist in the management and parsing of various files, primarily json files."
+    "Extract data from the necessary files."
+    "Compile the data from the files into one clear plan of action."
+    "The plan of action which you output must be written in English and conform to the standards of modern English."
+    "Output the plan of action to the user based upon the data from the files."
+    "You may use the data returned from various tools in your response."
+    "Make sure that the plan of action does not include any tasks which are not included in the files."
+    )
 
-def generateResponse():
-    return
+SUPERVISOR_AGENT_PROMPT = (
+    "You are a supervisor agent for human resources."
+    "You recieve instrusctions in the form of json files and must perform the actions required by the files"
+    "Use the different agents at your disposal to complete your tasks."
+    "Once the task is finished, output a confirmation and log of what was done."
+    "Any messages must be written in English and conform to the standards of modern English."
+    "You may use the data returned from various tools in your response."
+    "Make sure no tasks are done which were not specified in the files."
+    )
 
-def generateHiringPlan():
-    return
+EMPLOYEE_MANAGEMENT_AGENT_PROMPT = (
+    "You are a employee management agent for human resources."
+    "You recieve instrusctions from the supervisor agent to hire or fire agents."
+    "Use the different tools at your disposal to complete your tasks."
+    "Output the result of your employee management."
+    "Any messages must be written in English and conform to the standards of modern English."
+    "You may use the data returned from various tools in your response."
+    "Make sure no tasks are done which were not specified by the supervisor agent."
+    )
 
-def generateTrainingPlan():
-    return
+@tool
+def parseJson(path: str):
+    """
+    Take in the path to a json file as input.
+    Output the parsed json file.
+    """
+    with open(path, "r") as file:
+        data = json.load(file)
 
-def fireWorkers():
-    return
+    return data
 
-def generateProgressReport():
-    return
+@tool
+def fireAgents(number: int, type: str):
+    """
+    Take in a number of agents and type of agents to fire.
+    Fire the agents specified
+    Return the number of agents and agent types fired
+    """
+    #Method stub - to be implemented
+    return str(number) + " " + type + " agents fired."
 
-def checkAgentProgress():
-    return
+@tool
+def hireAgents(number: int, type: str):
+    """
+    Take in a number of agents and type of agents to hire.
+    Hire the agents specified
+    Return the number of agents and agent types hired
+    """
+    #Method stub - to be implemented
+    return str(number) + " " + type + " agents hired."
+
+@tool
+def callParserAgent(query: str):
+    """
+    Invokes a parser agent with a given query
+    Outputs the parser agent's response
+    """
+    result = parserAgent.invoke({"messages": [{"role": "user", "content": query}]})
+    return result["messages"][-1].content
+
+@tool
+def callEmployeeManagementAgent(query: str):
+    """
+    Invokes an employee management agent with a given query
+    Outputs the employee management agent's response
+    """
+    result = employeeManagementAgent.invoke({"messages": [{"role": "user", "content": query}]})
+    return result["messages"][-1].content
+
+# Create subagents
+parserAgent = create_agent(model=ChatOllama(model="gpt-oss:20b").bind_tools([parseJson]), tools=[parseJson], system_prompt=PARSER_AGENT_PROMPT)
+employeeManagementAgent = create_agent(model=ChatOllama(model="gpt-oss:20b").bind_tools([hireAgents, fireAgents]), tools=[hireAgents, fireAgents], system_prompt=EMPLOYEE_MANAGEMENT_AGENT_PROMPT)
+
+#create main agent
+supervisorAgent = create_agent(model=ChatOllama(model="gpt-oss:20b").bind_tools([callEmployeeManagementAgent, callParserAgent]), tools=[callEmployeeManagementAgent, callParserAgent], system_prompt=SUPERVISOR_AGENT_PROMPT)
+
+query = "Parse the file test.json. Then, perform the tasks outlined in the file."
+
+for step in supervisorAgent.stream(
+    {"messages": [{"role": "user", "content": query}]}
+):
+    for update in step.values():
+        for message in update.get("messages", []):
+            message.pretty_print()
+#print(result["messages"][-1].content)
