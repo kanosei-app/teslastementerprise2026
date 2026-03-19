@@ -1,7 +1,7 @@
 import argparse
 import sys
-# TODO: Impor actual agent class CEOO here
-# from core.agents import CEOAgent
+
+from ceo_agent import CEOAgent
 
 class MockCEOAgent:
     """A placeholder to ensure this script runs out of the box."""
