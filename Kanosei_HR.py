@@ -11,6 +11,7 @@ PARSER_AGENT_PROMPT = (
     "Compile the data from the files into one clear plan of action."
     "The plan of action which you output must be written in English and conform to the standards of modern English."
     "Output the plan of action to the user based upon the data from the files."
+    "Within the plan of action, you may include the following actions: hire agents, fire agents. You may ONLY use these actions."
     "You may use the data returned from various tools in your response."
     "Make sure that the plan of action does not include any tasks which are not included in the files."
     )
