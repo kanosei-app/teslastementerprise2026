@@ -2,7 +2,7 @@ import sqlite3
 import json
 import os
 
-class AgentBacklog:
+class agent_backlog:
     """
     A SQLite-based storage system that strictly maps to the agent JSON envelope.
     """
