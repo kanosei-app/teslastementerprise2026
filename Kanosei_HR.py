@@ -1,8 +1,10 @@
-#from brain_system import BrainWrapper, AgentWrapper
+import threading
 from langchain.tools import tool
 from langchain.agents import create_agent
 from langchain_ollama import ChatOllama
 import json
+
+from langgraph.pregel.main import Output
 
 PARSER_AGENT_PROMPT = (
     "You are a parser agent."
@@ -24,6 +26,7 @@ SUPERVISOR_AGENT_PROMPT = (
     "Any messages must be written in English and conform to the standards of modern English."
     "You may use the data returned from various tools in your response."
     "Make sure no tasks are done which were not specified in the files."
+    "After tasks are completed, you must output a json file"
     )
 
 EMPLOYEE_MANAGEMENT_AGENT_PROMPT = (
@@ -85,19 +88,25 @@ def callEmployeeManagementAgent(query: str):
     result = employeeManagementAgent.invoke({"messages": [{"role": "user", "content": query}]})
     return result["messages"][-1].content
 
+def callSupervisor(query: str):
+    create_agent(model=ChatOllama(model="gpt-oss:20b").bind_tools(
+    [callEmployeeManagementAgent, callParserAgent, outputJson]), tools=
+    [callEmployeeManagementAgent, callParserAgent, outputJson], 
+    system_prompt=SUPERVISOR_AGENT_PROMPT).invoke({"messages": [{"role": "user", "content": query}]})
+    print("thread done")
+
+@tool
+def outputJson():
+    """
+    Output a json file
+    """
+    print("Json outputted")
+
 # Create subagents
 parserAgent = create_agent(model=ChatOllama(model="gpt-oss:20b").bind_tools([parseJson]), tools=[parseJson], system_prompt=PARSER_AGENT_PROMPT)
 employeeManagementAgent = create_agent(model=ChatOllama(model="gpt-oss:20b").bind_tools([hireAgents, fireAgents]), tools=[hireAgents, fireAgents], system_prompt=EMPLOYEE_MANAGEMENT_AGENT_PROMPT)
 
-#create main agent
-supervisorAgent = create_agent(model=ChatOllama(model="gpt-oss:20b").bind_tools([callEmployeeManagementAgent, callParserAgent]), tools=[callEmployeeManagementAgent, callParserAgent], system_prompt=SUPERVISOR_AGENT_PROMPT)
-
-query = "Parse the file test.json. Then, perform the tasks outlined in the file."
-
-for step in supervisorAgent.stream(
-    {"messages": [{"role": "user", "content": query}]}
-):
-    for update in step.values():
-        for message in update.get("messages", []):
-            message.pretty_print()
-#print(result["messages"][-1].content)
+while(True):
+    query = input("Give a query")
+    t = threading.Thread(target=callSupervisor, args=(query,))
+    t.start()
