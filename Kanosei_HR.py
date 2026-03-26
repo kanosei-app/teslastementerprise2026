@@ -3,6 +3,9 @@ from langchain.tools import tool
 from langchain.agents import create_agent
 from langchain_ollama import ChatOllama
 import json
+from database import AgentBacklog
+
+db = AgentBacklog()
 
 PARSER_AGENT_PROMPT = (
     "You are a parser agent."
@@ -55,6 +58,7 @@ def fireAgents(number: int, type: str):
     Return the number of agents and agent types fired
     """
     #Method stub - to be implemented
+    db.record_log("req-001", "HR", "fired", {"number": number, "type": type})
     return str(number) + " " + type + " agents fired."
 
 @tool
@@ -65,6 +69,7 @@ def hireAgents(number: int, type: str):
     Return the number of agents and agent types hired
     """
     #Method stub - to be implemented
+    db.record_log("req-001", "HR", "hired", {"number": number, "type": type})
     return str(number) + " " + type + " agents hired."
 
 @tool
