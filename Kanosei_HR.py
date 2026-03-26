@@ -1,3 +1,4 @@
+from concurrent.futures import thread
 import threading
 from langchain.tools import tool
 from langchain.agents import create_agent
@@ -29,7 +30,6 @@ SUPERVISOR_AGENT_PROMPT = (
     "Any messages must be written in English and conform to the standards of modern English."
     "You may use the data returned from various tools in your response."
     "Make sure no tasks are done which were not specified in the files."
-    "After tasks are completed, you must output a json file"
     )
 
 EMPLOYEE_MANAGEMENT_AGENT_PROMPT = (
@@ -93,25 +93,41 @@ def callEmployeeManagementAgent(query: str):
     result = employeeManagementAgent.invoke({"messages": [{"role": "user", "content": query}]})
     return result["messages"][-1].content
 
-def callSupervisor(query: str):
+def callSupervisor(query):
+    db.update_status(query["id"], "in_progress")
     create_agent(model=ChatOllama(model="gpt-oss:20b").bind_tools(
-    [callEmployeeManagementAgent, callParserAgent, outputJson]), tools=
-    [callEmployeeManagementAgent, callParserAgent, outputJson], 
-    system_prompt=SUPERVISOR_AGENT_PROMPT).invoke({"messages": [{"role": "user", "content": query}]})
-    print("thread done")
+    [callEmployeeManagementAgent, callParserAgent]), tools=
+    [callEmployeeManagementAgent, callParserAgent], 
+    system_prompt=SUPERVISOR_AGENT_PROMPT).invoke(query)
+    db.update_status(query["id"], "done")
 
-@tool
-def outputJson():
-    """
-    Output a json file
-    """
-    print("Json outputted")
+sample_message = {
+    "id": "req-001",
+    "timestamp": "2026-03-01T10:00:00Z",
+    "sender": "CEO",
+    "recipient": "HR",
+    "task_type": "TALENT_REALLOCATION",
+    "context": {
+        "quarter": "Q2",
+        "year": 2026
+    },
+    "payload": {
+        "task": "Hire 10 engineering agents, and fire all 20 marketing agents"
+    },
+    "status": "pending",
+    "error": ""
+}
+
+db.record_interaction(sample_message)
 
 # Create subagents
 parserAgent = create_agent(model=ChatOllama(model="gpt-oss:20b").bind_tools([parseJson]), tools=[parseJson], system_prompt=PARSER_AGENT_PROMPT)
 employeeManagementAgent = create_agent(model=ChatOllama(model="gpt-oss:20b").bind_tools([hireAgents, fireAgents]), tools=[hireAgents, fireAgents], system_prompt=EMPLOYEE_MANAGEMENT_AGENT_PROMPT)
 
 while(True):
-    query = input("Give a query")
-    t = threading.Thread(target=callSupervisor, args=(query,))
-    t.start()
+    pending = db.get_pending_interactions()
+    for request in pending:
+        if(threading.active_count() > 2):
+            break
+        t = threading.Thread(target=callSupervisor, args=(request,))
+        t.start()
