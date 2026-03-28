@@ -27,7 +27,8 @@ def log_inter_agent_message(logger, message, direction="SENDING"):
     Args:
         logger: The agent's logger instance.
         message (dict): The standardized JSON message dictionary.
-        direction (str): Usually "SENDING" or "RECEIVING" to track data flow.
+        direction (str): Flow label, e.g. "SENDING", "RECEIVING", or from the
+            message bus: "ROUTING" (persist + route).
     """
     try:
         # Extract the critical envelope data for a clean, high-level summary

@@ -1,7 +1,7 @@
 import argparse
 import sys
 
-from ceo_agent import CEOAgent
+from ceo_agent import CeoAgent
 
 class MockCEOAgent:
     """A placeholder to ensure this script runs out of the box."""
