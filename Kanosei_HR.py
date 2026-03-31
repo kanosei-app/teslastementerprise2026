@@ -93,9 +93,35 @@ def callEmployeeManagementAgent(query: str):
     result = employeeManagementAgent.invoke({"messages": [{"role": "user", "content": query}]})
     return result["messages"][-1].content
 
+
+def getTokens(agentType: str):
+    """
+    Given an agent type, output the maximum number of tokens that agent type can use.
+    Agent types are: HR, PM
+    """
+    with open("agent_specs.json", "r") as file:
+        data = json.load(file)
+        return data["max_tokens"][agentType]
+
+@tool
+def setTokens(agentType: str, number: int):
+    """
+    Given an agent type, output the maximum number of tokens that agent type can use.
+    Agent types are: HR, PM
+    """
+    with open("agent_specs.json", "r+") as file:
+        data = json.load(file)
+        data["max_tokens"].update({agentType: number})
+        file.seek(0)
+        json.dump(data, file, indent=4)
+        file.truncate()
+        return
+
 def callSupervisor(query):
     db.update_status(query["id"], "in_progress")
-    create_agent(model=ChatOllama(model="gpt-oss:20b").bind_tools(
+    create_agent(model=ChatOllama(
+        model="gpt-oss:20b",
+        max_tokens=getTokens("HR")).bind_tools(
     [callEmployeeManagementAgent, callParserAgent]), tools=
     [callEmployeeManagementAgent, callParserAgent], 
     system_prompt=SUPERVISOR_AGENT_PROMPT).invoke(query)
@@ -118,11 +144,13 @@ sample_message = {
     "error": ""
 }
 
+db.clear_backlog()
+setTokens("PM", 999)
 db.record_interaction(sample_message)
 
 # Create subagents
 parserAgent = create_agent(model=ChatOllama(model="gpt-oss:20b").bind_tools([parseJson]), tools=[parseJson], system_prompt=PARSER_AGENT_PROMPT)
-employeeManagementAgent = create_agent(model=ChatOllama(model="gpt-oss:20b").bind_tools([hireAgents, fireAgents]), tools=[hireAgents, fireAgents], system_prompt=EMPLOYEE_MANAGEMENT_AGENT_PROMPT)
+employeeManagementAgent = create_agent(model=ChatOllama(model="gpt-oss:20b").bind_tools([hireAgents, fireAgents]), tools=[hireAgents, fireAgents, setTokens], system_prompt=EMPLOYEE_MANAGEMENT_AGENT_PROMPT)
 
 while(True):
     pending = db.get_pending_interactions()
