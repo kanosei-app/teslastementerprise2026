@@ -6,7 +6,7 @@ from langchain_ollama import ChatOllama
 import json
 from database import AgentBacklog
 
-db = AgentBacklog()
+agentBacklog = AgentBacklog()
 
 from langgraph.pregel.main import Output
 
@@ -61,7 +61,7 @@ def fireAgents(number: int, type: str):
     Return the number of agents and agent types fired
     """
     #Method stub - to be implemented
-    db.record_log("req-001", "HR", "fired", {"number": number, "type": type})
+    agentBacklog.record_log("req-001", "HR", "fired", {"number": number, "type": type})
     return str(number) + " " + type + " agents fired."
 
 @tool
@@ -72,7 +72,7 @@ def hireAgents(number: int, type: str):
     Return the number of agents and agent types hired
     """
     #Method stub - to be implemented
-    db.record_log("req-001", "HR", "hired", {"number": number, "type": type})
+    agentBacklog.record_log("req-001", "HR", "hired", {"number": number, "type": type})
     return str(number) + " " + type + " agents hired."
 
 @tool
@@ -118,14 +118,14 @@ def setTokens(agentType: str, number: int):
         return
 
 def callSupervisor(query):
-    db.update_status(query["id"], "in_progress")
+    agentBacklog.update_status(query["id"], "in_progress")
     create_agent(model=ChatOllama(
         model="gpt-oss:20b",
         max_tokens=getTokens("HR")).bind_tools(
     [callEmployeeManagementAgent, callParserAgent]), tools=
     [callEmployeeManagementAgent, callParserAgent], 
     system_prompt=SUPERVISOR_AGENT_PROMPT).invoke(query)
-    db.update_status(query["id"], "done")
+    agentBacklog.update_status(query["id"], "done")
 
 sample_message = {
     "id": "req-001",
@@ -144,16 +144,16 @@ sample_message = {
     "error": ""
 }
 
-db.clear_backlog()
+agentBacklog.clear_backlog()
 setTokens("PM", 999)
-db.record_interaction(sample_message)
+agentBacklog.record_interaction(sample_message)
 
 # Create subagents
 parserAgent = create_agent(model=ChatOllama(model="gpt-oss:20b").bind_tools([parseJson]), tools=[parseJson], system_prompt=PARSER_AGENT_PROMPT)
 employeeManagementAgent = create_agent(model=ChatOllama(model="gpt-oss:20b").bind_tools([hireAgents, fireAgents]), tools=[hireAgents, fireAgents, setTokens], system_prompt=EMPLOYEE_MANAGEMENT_AGENT_PROMPT)
 
 while(True):
-    pending = db.get_pending_interactions()
+    pending = agentBacklog.get_pending_interactions()
     for request in pending:
         if(threading.active_count() > 2):
             break

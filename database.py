@@ -237,6 +237,135 @@ class AgentBacklog:
             "error":     row["error"]
         }
 
+class AgentSpecs:
+    """
+    SQLite-based storage for agent specifications.
+    """
+
+    def __init__(self, db_path="enterprise_agent_specs.db"):
+        self.db_path = db_path
+        self._initialize_db()
+
+    # ================================================================
+    # SETUP
+    # ================================================================
+
+    def _initialize_db(self):
+        """
+        Creates the database tables if they don't exist yet.
+        - interactions: stores every agent message/task
+        - logs:         stores what each agent actually did
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+
+            # --------------------------------------------------------
+            # INTERACTIONS TABLE
+            # One row per message between agents, matches JSON schema
+            # --------------------------------------------------------
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS specs (
+                    agent_type       TEXT PRIMARY KEY,   -- agent type
+                    agent_specs      TEXT,               -- the specs of the agent as a JSON
+                    error      TEXT                -- error message if something went wrong
+                )
+            """)
+
+            conn.commit()
+
+    # ================================================================
+    # INTERACTION FUNCTIONS
+    # ================================================================
+
+    def add_agent_specs(self, message: dict):
+        """
+        Insert a message/task into the interactions table.
+        Pass in a dict matching the JSON schema.
+        Uses INSERT OR IGNORE so duplicate ids are skipped safely.
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT OR IGNORE INTO specs
+                    (agent_type, agent_specs, error)
+                    VALUES (?, ?, ?)
+                """, (
+                    message.get("agent_type"),
+                    json.dumps(message.get("agent_specs", {})),
+                    message.get("error", "")
+                ))
+                conn.commit()
+
+        except sqlite3.Error as e:
+            print(f"[DATABASE ERROR] Failed to record specs: {e}")
+
+    def get_specs(self, agent_type: str):
+        """
+        Returns all interactions with status 'pending'.
+        Use this to find tasks that still need to be processed.
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                task = "SELECT * FROM specs WHERE agent_type = '" + agent_type + "'"
+                cursor.execute(task)
+                rows = cursor.fetchall()
+                return json.loads(rows[0]["agent_specs"])
+
+        except sqlite3.Error as e:
+            print(f"[DATABASE ERROR] Failed to get specs: {e}")
+            return {}
+
+    def update_spec(self, agent_type: str, spec_type: str, amount: int, error: str = ""):
+        """
+        Update the status of an interaction.
+        e.g. from 'pending' to 'in_progress' or 'done' or 'error'
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                new_specs = self.get_specs(agent_type)
+                new_specs[spec_type] = amount
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE specs SET agent_specs = ?, error = ? WHERE agent_type = ?
+                """, (json.dumps(new_specs), error, agent_type))
+                conn.commit()
+
+        except sqlite3.Error as e:
+            print(f"[DATABASE ERROR] Failed to update status: {e}")
+
+    # ================================================================
+    # UTILITY
+    # ================================================================
+
+    def clear_specs(self):
+        """
+        Wipes all data from the database tables.
+        For development and testing purposes only. Do not call in production.
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM specs")
+                cursor.execute("DELETE FROM sqlite_sequence")  # resets autoincrement
+                conn.commit()
+        except sqlite3.Error as e:
+            print(f"[DATABASE ERROR] Failed to clear backlog: {e}")
+
+    def _reconstruct_message(self, row):
+        """
+        Internal helper — converts a database row back into a dict
+        matching the original JSON schema, parsing context and payload
+        back from strings into dicts.
+        """
+        return {   
+            "type":        row["type"],
+            "specs":       json.loads(row["specs"] or "{}"),
+            "error":       row["error"]
+        }
+
 
 # ====================================================================
 # QUICK TEST
@@ -244,50 +373,22 @@ class AgentBacklog:
 # python database.py
 # ====================================================================
 if __name__ == "__main__":
-    db = AgentBacklog()
-    db.clear_backlog()
-    
-    # Test inserting a task matching the JSON schema
-    sample_message = {
-        "id": "req-001",
-        "timestamp": "2026-03-01T10:00:00Z",
-        "sender": "CEO",
-        "recipient": "HR",
-        "task_type": "TALENT_REALLOCATION",
-        "context": {
-            "quarter": "Q2",
-            "year": 2026
-        },
-        "payload": {
-            "task": "Hire 10 engineering agents, and fire all 20 marketing agents"
-        },
-        "status": "pending",
+    db = AgentSpecs()
+
+    db.clear_specs();
+
+    db.add_agent_specs({
+        "agent_type": "HR",
+        "agent_specs": {
+            "max_tokens": 1000,
+            "max_agents": 2,
+            },
         "error": ""
-    }
+        })
 
-    db.record_interaction(sample_message)
-    print("Inserted sample interaction.")
+    print(db.get_specs("HR"))
 
-    # Test fetching pending tasks
-    pending = db.get_pending_interactions()
-    print("Pending interactions:", pending)
+    db.update_spec("HR", "max_tokens", 10900)
 
-    # Test updating status
-    db.update_status("req-001", "in_progress")
-    print("Updated status to in_progress.")
-
-    # Test logging agent actions
-    db.record_log("req-001", "HR", "hired", {"number": 10, "type": "engineering"})
-    db.record_log("req-001", "HR", "fired", {"number": 20, "type": "marketing"})
-
-    # Test fetching logs
-    logs = db.get_logs("req-001")
-    print("Logs:", logs)
-
-    # Test agent history
-    history = db.get_agent_history("CEO")
-    print("CEO history:", history)
-
-    # Test updating to done
-    db.update_status("req-001", "done")
-    print("Updated status to done.")
+    print(db.get_specs("HR"))
+    

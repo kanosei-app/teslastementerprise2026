@@ -3,16 +3,20 @@
   "WorkspaceRootPath": "C:\\Users\\catac\\source\\repos\\averagesteamuser\\teslastementerprise2026\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\catac\\source\\repos\\averagesteamuser\\teslastementerprise2026\\database.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:database.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\catac\\source\\repos\\averagesteamuser\\teslastementerprise2026\\Kanosei_HR.py||{8B382828-6202-11D1-8870-0000F87579D2}",
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:Kanosei_HR.py||{8B382828-6202-11D1-8870-0000F87579D2}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\catac\\source\\repos\\averagesteamuser\\teslastementerprise2026\\agent_specs.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:agent_specs.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\catac\\source\\repos\\averagesteamuser\\teslastementerprise2026\\logger.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:logger.py||{8B382828-6202-11D1-8870-0000F87579D2}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\catac\\source\\repos\\averagesteamuser\\teslastementerprise2026\\database.py||{8B382828-6202-11D1-8870-0000F87579D2}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:database.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\catac\\source\\repos\\averagesteamuser\\teslastementerprise2026\\agent_specs.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:agent_specs.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\catac\\source\\repos\\averagesteamuser\\teslastementerprise2026\\test.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
@@ -30,7 +34,20 @@
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 2,
+              "Title": "logger.py",
+              "DocumentMoniker": "C:\\Users\\catac\\source\\repos\\averagesteamuser\\teslastementerprise2026\\logger.py",
+              "RelativeDocumentMoniker": "logger.py",
+              "ToolTip": "C:\\Users\\catac\\source\\repos\\averagesteamuser\\teslastementerprise2026\\logger.py",
+              "RelativeToolTip": "logger.py",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-03-31T02:14:22.069Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
               "Title": "test.json",
               "DocumentMoniker": "C:\\Users\\catac\\source\\repos\\averagesteamuser\\teslastementerprise2026\\test.json",
               "RelativeDocumentMoniker": "test.json",
@@ -38,44 +55,42 @@
               "RelativeToolTip": "test.json",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
-              "WhenOpened": "2026-03-31T01:13:31.581Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-03-31T01:13:31.581Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 3,
               "Title": "agent_specs.json",
               "DocumentMoniker": "C:\\Users\\catac\\source\\repos\\averagesteamuser\\teslastementerprise2026\\agent_specs.json",
               "RelativeDocumentMoniker": "agent_specs.json",
               "ToolTip": "C:\\Users\\catac\\source\\repos\\averagesteamuser\\teslastementerprise2026\\agent_specs.json",
               "RelativeToolTip": "agent_specs.json",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAMAAAAQAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAMAAAARAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
-              "WhenOpened": "2026-03-31T01:13:28.664Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-03-31T01:13:28.664Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 0,
               "Title": "database.py",
               "DocumentMoniker": "C:\\Users\\catac\\source\\repos\\averagesteamuser\\teslastementerprise2026\\database.py",
               "RelativeDocumentMoniker": "database.py",
               "ToolTip": "C:\\Users\\catac\\source\\repos\\averagesteamuser\\teslastementerprise2026\\database.py",
               "RelativeToolTip": "database.py",
-              "ViewState": "AgIAAMcAAAAAvJS6ZLwJwLoAAAALAAAAAAAAAA==",
+              "ViewState": "AgIAADMBAAAAAAAAAAAAAEYBAAA3AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
               "WhenOpened": "2026-03-26T22:31:53.492Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 1,
               "Title": "Kanosei_HR.py",
               "DocumentMoniker": "C:\\Users\\catac\\source\\repos\\averagesteamuser\\teslastementerprise2026\\Kanosei_HR.py",
               "RelativeDocumentMoniker": "Kanosei_HR.py",
               "ToolTip": "C:\\Users\\catac\\source\\repos\\averagesteamuser\\teslastementerprise2026\\Kanosei_HR.py",
               "RelativeToolTip": "Kanosei_HR.py",
-              "ViewState": "AgIAAFoAAAAAAAAAAAAAAHMAAAAnAAAAAAAAAA==",
+              "ViewState": "AgIAAGQAAAAAAAAAAAAhwD8AAABXAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
               "WhenOpened": "2026-03-19T02:15:21.609Z",
               "EditorCaption": ""
