@@ -12,7 +12,7 @@ import threading
 from collections import defaultdict, deque
 from typing import Any, Callable, DefaultDict, Deque, Dict, List, Optional
 
-from agent_backlog import agent_backlog
+from agent_backlog import AgentBacklog
 from agent_logger import get_agent_logger, log_inter_agent_message
 
 Handler = Callable[[Dict[str, Any]], Any]
@@ -50,10 +50,10 @@ class MessageBus:
 
     def __init__(
         self,
-        backlog: Optional[agent_backlog] = None,
+        backlog: Optional[AgentBacklog] = None,
         json_log_path: str = "enterprise_message_bus.jsonl",
     ):
-        self._backlog = backlog or agent_backlog()
+        self._backlog = backlog or AgentBacklog()
         self._json_log_path = json_log_path
         self._lock = threading.Lock()
         self._persist_lock = threading.Lock()

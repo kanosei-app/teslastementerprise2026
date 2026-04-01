@@ -35,9 +35,9 @@ class AdvisorAgent:
         feedback = "Proposal strongly aligns with Q1/Q2 revenue targets."
         
         # Example of catching a strategic drift:
-        if "hardware" in str(proposed_action).lower() and "SaaS" in self.core_strategy:
+        if "manufactur" in str(proposed_action).lower() and "software" in self.core_strategy.lower():
             is_aligned = False
-            feedback = "WARNING: Proposed hardware expansion violates the core SaaS focus strategy."
+            feedback = "WARNING: Proposed hardware manufacturing violates the core software focus strategy."
 
         # 3. Construct the Advisor's response using the strict JSON schema
         advisory_response = {

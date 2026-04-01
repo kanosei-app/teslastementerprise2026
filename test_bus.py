@@ -3,7 +3,7 @@ import os
 import uuid
 import datetime
 
-from agent_backlog import agent_backlog
+from agent_backlog import AgentBacklog
 from agent_logger import log_inter_agent_message
 from message_bus import MessageBus
 from advisor_agent import AdvisorAgent
@@ -15,7 +15,7 @@ def run_bus_simulation():
 
     here = os.path.dirname(os.path.abspath(__file__))
     bus = MessageBus(
-        backlog=agent_backlog(os.path.join(here, "test_bus_backlog.db")),
+        backlog=AgentBacklog(os.path.join(here, "test_bus_backlog.db")),
         json_log_path=os.path.join(here, "test_bus_messages.jsonl"),
     )
 
