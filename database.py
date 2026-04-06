@@ -1,7 +1,9 @@
-import sqlite3
 import json
 import os
 from datetime import datetime
+
+from pymongo import MongoClient
+from pymongo.errors import DuplicateKeyError
 
 
 class AgentBacklog:
@@ -16,6 +18,11 @@ class AgentBacklog:
 
     def __init__(self, db_path="enterprise_backlog.db"):
         self.db_path = db_path
+        # Use the provided path (filename) to derive a MongoDB database name
+        # keep the default value unchanged for compatibility
+        dbname = os.path.splitext(os.path.basename(self.db_path))[0]
+        self.client = MongoClient(os.environ.get("MONGO_URI", "mongodb://localhost:27017/"))
+        self.db = self.client[dbname]
         self._initialize_db()
 
     # ================================================================
@@ -28,43 +35,14 @@ class AgentBacklog:
         - interactions: stores every agent message/task
         - logs:         stores what each agent actually did
         """
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-
-            # --------------------------------------------------------
-            # INTERACTIONS TABLE
-            # One row per message between agents, matches JSON schema
-            # --------------------------------------------------------
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS interactions (
-                    id          TEXT PRIMARY KEY,  -- unique message id e.g. "req-001"
-                    timestamp   TEXT,              -- when it was created (ISO 8601)
-                    sender      TEXT,              -- agent who sent it e.g. "CEO"
-                    recipient   TEXT,              -- agent who receives it e.g. "HR"
-                    task_type   TEXT,              -- e.g. "TALENT_REALLOCATION"
-                    context     TEXT,              -- extra info as JSON string
-                    payload     TEXT,              -- the actual task as JSON string
-                    status      TEXT,              -- pending, in_progress, done, error
-                    error       TEXT               -- error message if something went wrong
-                )
-            """)
-
-            # --------------------------------------------------------
-            # LOGS TABLE
-            # One row per action an agent took
-            # --------------------------------------------------------
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS logs (
-                    log_id      INTEGER PRIMARY KEY AUTOINCREMENT,
-                    task_id     TEXT,              -- links back to an interaction id
-                    agent_name  TEXT,              -- which agent did this
-                    action      TEXT,              -- what it did e.g. "hired", "fired"
-                    details     TEXT,              -- extra info as JSON string
-                    timestamp   TEXT               -- when it happened
-                )
-            """)
-
-            conn.commit()
+        # For MongoDB we ensure collections exist and set an index on `id` for interactions
+        interactions = self.db.get_collection("interactions")
+        logs = self.db.get_collection("logs")
+        # ensure `id` is unique for interactions (maps to previous PRIMARY KEY)
+        try:
+            interactions.create_index("id", unique=True)
+        except Exception:
+            pass
 
     # ================================================================
     # INTERACTION FUNCTIONS
@@ -77,26 +55,25 @@ class AgentBacklog:
         Uses INSERT OR IGNORE so duplicate ids are skipped safely.
         """
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT OR IGNORE INTO interactions
-                    (id, timestamp, sender, recipient, task_type, context, payload, status, error)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    message.get("id"),
-                    message.get("timestamp", datetime.utcnow().isoformat()),
-                    message.get("sender", ""),
-                    message.get("recipient", ""),
-                    message.get("task_type", ""),
-                    json.dumps(message.get("context", {})),
-                    json.dumps(message.get("payload", {})),
-                    message.get("status", "pending"),
-                    message.get("error", "")
-                ))
-                conn.commit()
-
-        except sqlite3.Error as e:
+            interactions = self.db.get_collection("interactions")
+            doc = {
+                "id": message.get("id"),
+                "timestamp": message.get("timestamp", datetime.utcnow().isoformat()),
+                "sender": message.get("sender", ""),
+                "recipient": message.get("recipient", ""),
+                "task_type": message.get("task_type", ""),
+                # store context/payload as JSON-like objects (dicts)
+                "context": message.get("context", {}),
+                "payload": message.get("payload", {}),
+                "status": message.get("status", "pending"),
+                "error": message.get("error", "")
+            }
+            try:
+                interactions.insert_one(doc)
+            except DuplicateKeyError:
+                # INSERT OR IGNORE semantics: do nothing if id exists
+                pass
+        except Exception as e:
             print(f"[DATABASE ERROR] Failed to record interaction: {e}")
 
     def get_pending_interactions(self):
@@ -105,14 +82,10 @@ class AgentBacklog:
         Use this to find tasks that still need to be processed.
         """
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.row_factory = sqlite3.Row
-                cursor = conn.cursor()
-                cursor.execute("SELECT * FROM interactions WHERE status = 'pending'")
-                rows = cursor.fetchall()
-                return [self._reconstruct_message(row) for row in rows]
-
-        except sqlite3.Error as e:
+            interactions = self.db.get_collection("interactions")
+            cursor = interactions.find({"status": "pending"})
+            return [self._reconstruct_message(row) for row in cursor]
+        except Exception as e:
             print(f"[DATABASE ERROR] Failed to get pending interactions: {e}")
             return []
 
@@ -122,19 +95,11 @@ class AgentBacklog:
         Useful for checking what an agent has sent or received.
         """
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.row_factory = sqlite3.Row
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT * FROM interactions
-                    WHERE sender = ? OR recipient = ?
-                    ORDER BY timestamp DESC
-                    LIMIT ?
-                """, (agent_name, agent_name, limit))
-                rows = cursor.fetchall()
-                return [self._reconstruct_message(row) for row in rows]
-
-        except sqlite3.Error as e:
+            interactions = self.db.get_collection("interactions")
+            cursor = interactions.find({"$or": [{"sender": agent_name}, {"recipient": agent_name}]})
+            cursor = cursor.sort("timestamp", -1).limit(limit)
+            return [self._reconstruct_message(row) for row in cursor]
+        except Exception as e:
             print(f"[DATABASE ERROR] Failed to retrieve agent history: {e}")
             return []
 
@@ -144,14 +109,9 @@ class AgentBacklog:
         e.g. from 'pending' to 'in_progress' or 'done' or 'error'
         """
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    UPDATE interactions SET status = ?, error = ? WHERE id = ?
-                """, (status, error, task_id))
-                conn.commit()
-
-        except sqlite3.Error as e:
+            interactions = self.db.get_collection("interactions")
+            interactions.update_one({"id": task_id}, {"$set": {"status": status, "error": error}})
+        except Exception as e:
             print(f"[DATABASE ERROR] Failed to update status: {e}")
 
     # ================================================================
@@ -164,21 +124,16 @@ class AgentBacklog:
         Call this inside hireAgents() and fireAgents() in Kanosei_HR.py.
         """
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT INTO logs (task_id, agent_name, action, details, timestamp)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (
-                    task_id,
-                    agent_name,
-                    action,
-                    json.dumps(details),
-                    datetime.utcnow().isoformat()
-                ))
-                conn.commit()
-
-        except sqlite3.Error as e:
+            logs = self.db.get_collection("logs")
+            doc = {
+                "task_id": task_id,
+                "agent_name": agent_name,
+                "action": action,
+                "details": details,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+            logs.insert_one(doc)
+        except Exception as e:
             print(f"[DATABASE ERROR] Failed to record log: {e}")
 
     def get_logs(self, task_id: str = None):
@@ -186,17 +141,20 @@ class AgentBacklog:
         Get logs. Pass a task_id to filter by task, or leave empty for all logs.
         """
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.row_factory = sqlite3.Row
-                cursor = conn.cursor()
-                if task_id:
-                    cursor.execute("SELECT * FROM logs WHERE task_id = ?", (task_id,))
-                else:
-                    cursor.execute("SELECT * FROM logs")
-                rows = cursor.fetchall()
-                return [dict(row) for row in rows]
-
-        except sqlite3.Error as e:
+            logs = self.db.get_collection("logs")
+            if task_id:
+                cursor = logs.find({"task_id": task_id})
+            else:
+                cursor = logs.find()
+            result = []
+            for row in cursor:
+                # convert ObjectId to string if present
+                row = dict(row)
+                if "_id" in row:
+                    row["_id"] = str(row["_id"])
+                result.append(row)
+            return result
+        except Exception as e:
             print(f"[DATABASE ERROR] Failed to get logs: {e}")
             return []
 
@@ -210,13 +168,11 @@ class AgentBacklog:
         For development and testing purposes only. Do not call in production.
         """
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute("DELETE FROM interactions")
-                cursor.execute("DELETE FROM logs")
-                cursor.execute("DELETE FROM sqlite_sequence")  # resets autoincrement
-                conn.commit()
-        except sqlite3.Error as e:
+            interactions = self.db.get_collection("interactions")
+            logs = self.db.get_collection("logs")
+            interactions.delete_many({})
+            logs.delete_many({})
+        except Exception as e:
             print(f"[DATABASE ERROR] Failed to clear backlog: {e}")
 
     def _reconstruct_message(self, row):
@@ -225,16 +181,17 @@ class AgentBacklog:
         matching the original JSON schema, parsing context and payload
         back from strings into dicts.
         """
+        # row is a dict-like document from MongoDB
         return {
-            "id":        row["id"],
-            "timestamp": row["timestamp"],
-            "sender":    row["sender"],
-            "recipient": row["recipient"],
-            "task_type": row["task_type"],
-            "context":   json.loads(row["context"] or "{}"),
-            "payload":   json.loads(row["payload"] or "{}"),
-            "status":    row["status"],
-            "error":     row["error"]
+            "id":        row.get("id"),
+            "timestamp": row.get("timestamp"),
+            "sender":    row.get("sender"),
+            "recipient": row.get("recipient"),
+            "task_type": row.get("task_type"),
+            "context":   row.get("context") or {},
+            "payload":   row.get("payload") or {},
+            "status":    row.get("status"),
+            "error":     row.get("error")
         }
 
 class AgentSpecs:
@@ -244,6 +201,15 @@ class AgentSpecs:
 
     def __init__(self, db_path="enterprise_agent_specs.db"):
         self.db_path = db_path
+        dbname = os.path.splitext(os.path.basename(self.db_path))[0]
+
+        #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        #  IMPORTANT: MongoClient URI MUST be the same as the locally 
+        #             created Docker Database if running locally
+        #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+        self.client = MongoClient("mongodb://localhost:27017/?directConnection=true&serverSelectionTimeoutMS=2000&appName=mongosh+2.8.2")
+        self.db = self.client[dbname]
         self._initialize_db()
 
     # ================================================================
@@ -256,22 +222,11 @@ class AgentSpecs:
         - interactions: stores every agent message/task
         - logs:         stores what each agent actually did
         """
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-
-            # --------------------------------------------------------
-            # INTERACTIONS TABLE
-            # One row per message between agents, matches JSON schema
-            # --------------------------------------------------------
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS specs (
-                    agent_type       TEXT PRIMARY KEY,   -- agent type
-                    agent_specs      TEXT,               -- the specs of the agent as a JSON
-                    error      TEXT                -- error message if something went wrong
-                )
-            """)
-
-            conn.commit()
+        specs = self.db.get_collection("specs")
+        try:
+            specs.create_index("agent_type", unique=True)
+        except Exception:
+            pass
 
     # ================================================================
     # INTERACTION FUNCTIONS
@@ -284,20 +239,18 @@ class AgentSpecs:
         Uses INSERT OR IGNORE so duplicate ids are skipped safely.
         """
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT OR IGNORE INTO specs
-                    (agent_type, agent_specs, error)
-                    VALUES (?, ?, ?)
-                """, (
-                    message.get("agent_type"),
-                    json.dumps(message.get("agent_specs", {})),
-                    message.get("error", "")
-                ))
-                conn.commit()
-
-        except sqlite3.Error as e:
+            specs = self.db.get_collection("specs")
+            doc = {
+                "agent_type": message.get("agent_type"),
+                "agent_specs": message.get("agent_specs", {}),
+                "error": message.get("error", "")
+            }
+            try:
+                specs.insert_one(doc)
+            except DuplicateKeyError:
+                # INSERT OR IGNORE semantics
+                pass
+        except Exception as e:
             print(f"[DATABASE ERROR] Failed to record specs: {e}")
 
     def get_specs(self, agent_type: str):
@@ -306,15 +259,12 @@ class AgentSpecs:
         Use this to find tasks that still need to be processed.
         """
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.row_factory = sqlite3.Row
-                cursor = conn.cursor()
-                task = "SELECT * FROM specs WHERE agent_type = '" + agent_type + "'"
-                cursor.execute(task)
-                rows = cursor.fetchall()
-                return json.loads(rows[0]["agent_specs"])
-
-        except sqlite3.Error as e:
+            specs = self.db.get_collection("specs")
+            doc = specs.find_one({"agent_type": agent_type})
+            if not doc:
+                return {}
+            return doc.get("agent_specs", {})
+        except Exception as e:
             print(f"[DATABASE ERROR] Failed to get specs: {e}")
             return {}
 
@@ -324,16 +274,11 @@ class AgentSpecs:
         e.g. from 'pending' to 'in_progress' or 'done' or 'error'
         """
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                new_specs = self.get_specs(agent_type)
-                new_specs[spec_type] = amount
-                cursor = conn.cursor()
-                cursor.execute("""
-                    UPDATE specs SET agent_specs = ?, error = ? WHERE agent_type = ?
-                """, (json.dumps(new_specs), error, agent_type))
-                conn.commit()
-
-        except sqlite3.Error as e:
+            specs = self.db.get_collection("specs")
+            new_specs = self.get_specs(agent_type)
+            new_specs[spec_type] = amount
+            specs.update_one({"agent_type": agent_type}, {"$set": {"agent_specs": new_specs, "error": error}})
+        except Exception as e:
             print(f"[DATABASE ERROR] Failed to update status: {e}")
 
     # ================================================================
@@ -346,12 +291,9 @@ class AgentSpecs:
         For development and testing purposes only. Do not call in production.
         """
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute("DELETE FROM specs")
-                cursor.execute("DELETE FROM sqlite_sequence")  # resets autoincrement
-                conn.commit()
-        except sqlite3.Error as e:
+            specs = self.db.get_collection("specs")
+            specs.delete_many({})
+        except Exception as e:
             print(f"[DATABASE ERROR] Failed to clear backlog: {e}")
 
     def _reconstruct_message(self, row):
@@ -360,10 +302,10 @@ class AgentSpecs:
         matching the original JSON schema, parsing context and payload
         back from strings into dicts.
         """
-        return {   
-            "type":        row["type"],
-            "specs":       json.loads(row["specs"] or "{}"),
-            "error":       row["error"]
+        return {
+            "type": row.get("agent_type"),
+            "specs": row.get("agent_specs") or {},
+            "error": row.get("error")
         }
 
 
