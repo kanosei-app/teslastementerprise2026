@@ -16,7 +16,7 @@ from message_bus import MessageBus
 
 def _load_multithreaded_module():
     here = os.path.dirname(os.path.abspath(__file__))
-    path = os.path.join(here, "multithreaded agents.py")
+    path = os.path.join(here, "multithreaded_agent.py")
     spec = importlib.util.spec_from_file_location("multithreaded_agents_impl", path)
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)

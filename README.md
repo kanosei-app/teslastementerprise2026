@@ -10,6 +10,70 @@ CEO Agent is the central decision-maker. It delegates tasks, resolves conflicts,
 - Responsibilities: Analyze market trends; define quarterly OKRs; assign tasks (e.g., "Launch MVP"); review reports; veto/approve proposals.
 - Inputs: Market data, agent reports. Outputs: Task delegations, OKRs, final decisions.
 - Behaviors: Uses reasoning chains for prioritization; prompts like "Prioritize based on ROI >20%." Tools: Analytics dashboard, email notifier.
+- **Distribution tokens:** The CEO also governs [distribution tokens](#distribution-tokens-ceo-managed) (scenarios, minting, and per-agent assignments) when the message bus enforces token-gated sends.
+
+## Distribution tokens (CEO-managed)
+
+Governed **scenarios** throttle how many times an agent can complete a **token-gated** message on the bus. Each scenario has a **`cost_per_send`**: one successful `MessageBus.send` that names that scenario in the envelope consumes that many tokens from the **sender’s** balance.
+
+### How a send picks a scenario
+
+The bus reads (first match wins):
+
+1. `context["distribution_scenario"]`
+2. `context["prompt_scenario"]`
+
+If neither is set, or the string is **not** a registered scenario, the send is **not** charged (normal delivery).
+
+If enforcement is on and the scenario **is** registered, the sender must have enough balance or the send raises `DistributionTokenError` and is **not** persisted.
+
+### Costs, per-agent caps, and total caps (how the code works)
+
+| Concept | Meaning in code |
+|--------|------------------|
+| **Task / scenario** | A registered scenario id (string), e.g. `STANDARD_DELEGATION`. |
+| **Token cost per send** | `cost_per_send` for that scenario (minimum **1**). Each gated send deducts this from the sender’s balance for that scenario. |
+| **Per-agent cap** | Not a separate limit: it is whatever balance the CEO **minted** or **transferred** to that agent for that scenario. More sends are allowed only if the CEO increases that balance. |
+| **Total cap (system-wide for one scenario)** | The **sum of all tokens in existence** for that scenario: CEO **mints** into one or more holders; tokens are only destroyed by **consumption** on send. There is no second hidden pool—the minted amount is the supply ceiling until the CEO mints again. |
+
+**Simplest “baseline” task:** one governed bus message (one delivery attempt) for scenario `STANDARD_DELEGATION` with default `cost_per_send = 1` costs **1 token** from the sender’s balance for `STANDARD_DELEGATION`.
+
+### Reference allotment (example policy)
+
+The table below is a **project default you can implement** with `CeoDistributionTokenRegistry` + `CeoAgent.mint_distribution_tokens` / `assign_distribution_tokens`. Numbers are not hardcoded; they document the intended budget.
+
+**Scenario: `STANDARD_DELEGATION`** — routine delegations and cross-agent routing that should stay cheap.
+
+| Agent (holder) | Allotted tokens (starting balance) | Notes |
+|----------------|-------------------------------------|--------|
+| CEO | 30 | Executive broadcasts and top-level routing |
+| PM | 25 | Roadmap and coordination |
+| Engineering | 20 | Build / technical delegations |
+| Marketing | 15 | Campaign and messaging handoffs |
+| HR | 10 | Internal people workflows |
+| Sales | 10 | Pipeline and customer-facing handoffs |
+| Finance | 10 | Budget and approval threads |
+| UI | 10 | Design handoffs |
+
+- **`cost_per_send` for `STANDARD_DELEGATION`:** **1** token per gated send.
+- **Total minted supply (cap) for this scenario:** **130** (= sum of the column above). That is the maximum number of token **units** that can ever be spent **if the CEO never mints again**; each send spends `cost_per_send` (so up to **130** successful gated sends at cost 1, distributed by who still has balance).
+- **Per-agent cap:** each row’s allotment is that agent’s **maximum spend** for this scenario until the CEO mints more to them or transfers tokens.
+
+**Scenario: `EXECUTIVE_BROADCAST`** (optional, higher impact) — fewer, more expensive sends.
+
+| Agent | Allotted tokens |
+|-------|-----------------|
+| CEO | 12 |
+| PM | 3 |
+
+- **`cost_per_send`:** **3** (each gated send burns 3 tokens).
+- **Total minted supply for this scenario:** **15** token-units → at most **5** gated sends if only CEO sends (`15 / 3`), or a mix of sends as long as balances allow.
+
+### Wiring (summary)
+
+- Create `CeoDistributionTokenRegistry(executive_name="CEO")`, attach to `CeoAgent` and `MessageBus(..., distribution_tokens=reg, enforce_distribution_tokens=True)`.
+- CEO: `register_distribution_scenario`, `mint_distribution_tokens` (total supply), `assign_distribution_tokens` (per-agent rows in the table).
+- Agents: include `distribution_scenario` or `prompt_scenario` in `context` only when that send should count against the budget.
 
 ## Pseoudocode of CEO Flow
 

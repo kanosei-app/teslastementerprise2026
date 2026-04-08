@@ -1,8 +1,12 @@
 import uuid
 import datetime
-from agent_logger import get_agent_logger, log_inter_agent_message
+from typing import Any, Dict
 
-class AdvisorAgent:
+from agent_logger import get_agent_logger, log_inter_agent_message
+from thread_safe_agent import ThreadSafeAgentMixin
+
+
+class AdvisorAgent(ThreadSafeAgentMixin):
     """
     Advisor Agent Class
     Responsible for auditing the CEO's decisions and ensuring all actions 
@@ -10,16 +14,26 @@ class AdvisorAgent:
     """
     
     def __init__(self, name="Strategic Advisor", core_strategy=""):
+        super().__init__()
         self.name = name
         self.core_strategy = core_strategy
         self.logger = get_agent_logger(self.name)
-        self.logger.info(f"{self.name} initialized with core strategy: '{self.core_strategy[:50]}...'")
+        preview = self.core_strategy[:50] if self.core_strategy else ""
+        self.logger.info(
+            "%s initialized with core strategy: %r",
+            self.name,
+            f"{preview}..." if len(self.core_strategy) > 50 else self.core_strategy,
+        )
 
     def evaluate_ceo_decision(self, ceo_proposal_message):
         """
         Takes a JSON message from the CEO, evaluates the payload against the 
         core strategy, and returns an advisory response message.
         """
+        with self._agent_lock:
+            return self._evaluate_ceo_decision_unlocked(ceo_proposal_message)
+
+    def _evaluate_ceo_decision_unlocked(self, ceo_proposal_message: Dict[str, Any]) -> Dict[str, Any]:
         self.logger.info("Received proposal from CEO for strategic review.")
         
         # 1. Log the incoming message from the CEO
@@ -63,3 +77,17 @@ class AdvisorAgent:
         log_inter_agent_message(self.logger, advisory_response, direction="SENDING")
         
         return advisory_response
+
+    def on_bus_envelope(self, envelope: Dict[str, Any]) -> Any:
+        task = (envelope.get("task_type") or "").strip()
+        if task in (
+            "STRATEGY_REVIEW_REQUEST",
+            "CEO_PROPOSAL_FOR_REVIEW",
+        ) or task.endswith("_FOR_REVIEW"):
+            return self.evaluate_ceo_decision(envelope)
+        return {
+            "ok": True,
+            "agent": self.name,
+            "task_type": task or "UNKNOWN",
+            "note": "Advisor acknowledged; no review handler for this task_type.",
+        }

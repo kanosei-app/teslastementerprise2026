@@ -10,10 +10,13 @@ import json
 import os
 import threading
 from collections import defaultdict, deque
-from typing import Any, Callable, DefaultDict, Deque, Dict, List, Optional
+from typing import Any, Callable, DefaultDict, Deque, Dict, List, Optional, TYPE_CHECKING
 
 from agent_backlog import AgentBacklog
 from agent_logger import get_agent_logger, log_inter_agent_message
+
+if TYPE_CHECKING:
+    from ceo_distribution_tokens import CeoDistributionTokenRegistry
 
 Handler = Callable[[Dict[str, Any]], Any]
 
@@ -52,9 +55,15 @@ class MessageBus:
         self,
         backlog: Optional[AgentBacklog] = None,
         json_log_path: str = "enterprise_message_bus.jsonl",
+        distribution_tokens: Optional["CeoDistributionTokenRegistry"] = None,
+        enforce_distribution_tokens: bool = False,
     ):
         self._backlog = backlog or AgentBacklog()
         self._json_log_path = json_log_path
+        self._distribution_tokens = distribution_tokens
+        self._enforce_distribution_tokens = bool(
+            enforce_distribution_tokens and distribution_tokens is not None
+        )
         self._lock = threading.Lock()
         self._persist_lock = threading.Lock()
         self._handlers: Dict[str, Handler] = {}
@@ -82,8 +91,43 @@ class MessageBus:
         """
         Route a message: normalize, persist (SQLite backlog + JSONL), log, then deliver.
         Returns handler return value if a handler ran, else None (message queued in mailbox).
+
+        When ``enforce_distribution_tokens`` is on and a registry is configured, envelopes
+        that name a **registered** scenario in ``context.distribution_scenario`` or
+        ``context.prompt_scenario`` consume tokens from the **sender** before persistence.
         """
+        # Import locally to avoid circular imports if ceo_distribution_tokens ever imports the bus.
+        from ceo_distribution_tokens import (
+            DistributionTokenError,
+            resolve_distribution_scenario,
+        )
+
         envelope = normalize_envelope(message)
+
+        if self._enforce_distribution_tokens and self._distribution_tokens is not None:
+            scenario = resolve_distribution_scenario(envelope)
+            if scenario and self._distribution_tokens.is_registered(scenario):
+                sender = (envelope.get("sender") or "").strip()
+                if not sender:
+                    raise DistributionTokenError(
+                        "Token-gated send requires a non-empty sender.",
+                        scenario=scenario,
+                        sender=sender,
+                        balance=0,
+                        cost=self._distribution_tokens.cost_for(scenario),
+                    )
+                cost = self._distribution_tokens.cost_for(scenario)
+                if not self._distribution_tokens.try_consume(sender, scenario, cost):
+                    bal = self._distribution_tokens.balance(sender, scenario)
+                    raise DistributionTokenError(
+                        f"Insufficient distribution tokens for scenario {scenario!r}: "
+                        f"holder {sender!r} has {bal}, need {cost}.",
+                        scenario=scenario,
+                        sender=sender,
+                        balance=bal,
+                        cost=cost,
+                    )
+
         self._persist(envelope)
         log_inter_agent_message(self._logger, envelope, direction="ROUTING")
 

@@ -6,6 +6,9 @@ Concurrent multi-topic agent coordination on top of the thread-safe MessageBus.
   ``receive``, so several topics are processed in parallel without blocking each other.
 - ``send_messages_parallel`` dispatches multiple envelopes concurrently (e.g. one
   outbound conversation per topic at the same time).
+- ``ParallelAgentRuntime`` registers agents that use :class:`~thread_safe_agent.ThreadSafeAgentMixin`
+  so each agent's ``handle_bus_message`` runs under that agent's lock; different agents
+  still execute in parallel when sends are parallelized.
 
 Handlers are not registered for topic channels so messages are queued; listeners
 consume from mailboxes in their own threads.
@@ -21,6 +24,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from message_bus import MessageBus
+from thread_safe_agent import SupportsBusRegistration
 
 TopicHandler = Callable[[Dict[str, Any]], None]
 
@@ -146,6 +150,31 @@ class TopicListener(threading.Thread):
                 self._on_message(msg)
             else:
                 self._halt.wait(self._poll)
+
+
+class ParallelAgentRuntime:
+    """
+    Registers one or more thread-safe agents on a :class:`MessageBus` for push delivery.
+
+    ``MessageBus.send`` invokes the recipient's handler in the **sender's** thread.
+    With :func:`send_messages_parallel`, different recipients run concurrently; each
+    agent's reentrant lock ensures a single in-flight handler for that instance so
+    internal state and workflows stay consistent.
+    """
+
+    def __init__(self, bus: MessageBus):
+        self._bus = bus
+        self._agents: List[SupportsBusRegistration] = []
+
+    def register(self, *agents: SupportsBusRegistration) -> None:
+        for agent in agents:
+            self._bus.register(agent.name, agent.as_bus_handler())
+            self._agents.append(agent)
+
+    def unregister_all(self) -> None:
+        for agent in self._agents:
+            self._bus.register(agent.name, None)
+        self._agents.clear()
 
 
 class MultiTopicAgentCoordinator:
