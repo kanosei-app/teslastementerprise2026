@@ -1,5 +1,3 @@
-from ceo_agent import CeoAgent 
-
 from agent_logger import get_agent_logger, log_inter_agent_message
 
 def run_test():

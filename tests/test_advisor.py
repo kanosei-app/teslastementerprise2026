@@ -1,6 +1,7 @@
 import uuid
 import datetime
-from advisor_agent import AdvisorAgent
+
+from agents.advisor_agent import AdvisorAgent
 
 def run_strategy_simulation():
     print("--- Starting Executive Board Simulation ---")

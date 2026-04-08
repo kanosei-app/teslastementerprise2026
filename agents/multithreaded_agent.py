@@ -6,7 +6,7 @@ Concurrent multi-topic agent coordination on top of the thread-safe MessageBus.
   ``receive``, so several topics are processed in parallel without blocking each other.
 - ``send_messages_parallel`` dispatches multiple envelopes concurrently (e.g. one
   outbound conversation per topic at the same time).
-- ``ParallelAgentRuntime`` registers agents that use :class:`~thread_safe_agent.ThreadSafeAgentMixin`
+- ``ParallelAgentRuntime`` registers agents that use :class:`~agents.thread_safe_agent.ThreadSafeAgentMixin`
   so each agent's ``handle_bus_message`` runs under that agent's lock; different agents
   still execute in parallel when sends are parallelized.
 
@@ -24,7 +24,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from message_bus import MessageBus
-from thread_safe_agent import SupportsBusRegistration
+
+from .thread_safe_agent import SupportsBusRegistration
 
 TopicHandler = Callable[[Dict[str, Any]], None]
 

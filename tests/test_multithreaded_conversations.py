@@ -1,30 +1,17 @@
 """
-Tests for multithreaded multi-topic conversations (loads ``multithreaded agents.py``).
+Tests for multithreaded multi-topic conversations (``agents.multithreaded_agent``).
 """
 
 from __future__ import annotations
 
-import importlib.util
 import os
 import tempfile
 import threading
 import unittest
 
 from agent_backlog import AgentBacklog
+from agents import multithreaded_agent as mt
 from message_bus import MessageBus
-
-
-def _load_multithreaded_module():
-    here = os.path.dirname(os.path.abspath(__file__))
-    path = os.path.join(here, "multithreaded_agent.py")
-    spec = importlib.util.spec_from_file_location("multithreaded_agents_impl", path)
-    assert spec and spec.loader
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
-
-
-mt = _load_multithreaded_module()
 
 
 class TestMultithreadedConversations(unittest.TestCase):

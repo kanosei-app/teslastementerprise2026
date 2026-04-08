@@ -1,8 +1,6 @@
 import argparse
 import sys
 
-from ceo_agent import CeoAgent
-
 class MockCEOAgent:
     """A placeholder to ensure this script runs out of the box."""
     def execute_reasoning_loop(self, message):

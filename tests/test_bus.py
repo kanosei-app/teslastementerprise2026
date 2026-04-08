@@ -5,9 +5,9 @@ import datetime
 
 from agent_backlog import AgentBacklog
 from agent_logger import log_inter_agent_message
+from agents.advisor_agent import AdvisorAgent
+from agents.ceo_agent import CeoAgent
 from message_bus import MessageBus
-from advisor_agent import AdvisorAgent
-from ceo_agent import CeoAgent
 
 
 def run_bus_simulation():
@@ -16,7 +16,7 @@ def run_bus_simulation():
     here = os.path.dirname(os.path.abspath(__file__))
     bus = MessageBus(
         backlog=AgentBacklog(os.path.join(here, "test_bus_backlog.db")),
-        json_log_path=os.path.join(here, "test_bus_messages.jsonl"),
+        json_log_path=os.path.join(here, "fixtures", "test_bus_messages.jsonl"),
     )
 
     # Mirrors test_advisor.py strategy so AdvisorAgent rules apply predictably

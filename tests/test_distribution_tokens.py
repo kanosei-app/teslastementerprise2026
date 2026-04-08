@@ -1,13 +1,12 @@
 """Tests for CEO distribution token registry and MessageBus gating."""
 
-import os
-import uuid
 import datetime
+import uuid
 
 import pytest
 
 from agent_backlog import AgentBacklog
-from ceo_agent import CeoAgent
+from agents.ceo_agent import CeoAgent
 from ceo_distribution_tokens import (
     CeoDistributionTokenRegistry,
     DistributionTokenError,
