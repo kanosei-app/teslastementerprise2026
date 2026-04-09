@@ -145,9 +145,10 @@ class CeoAgent(ThreadSafeAgentMixin):
             "stream": False,
         }
         try:
-            response = requests.post(self.ollama_url, json=payload)
+            response = requests.post(self.ollama_url, json=payload, timeout=20)
+            response.raise_for_status()
             return response.json().get("response")
-        except Exception as e:
+        except requests.RequestException as e:
             return f"Strategic Link Error: Ensure Docker is running. {e}"
 
     def oversee_company(self, subordinate_agents, context: Optional[Dict[str, Any]] = None):
