@@ -6,11 +6,18 @@ CEO Agent is the central decision-maker. It delegates tasks, resolves conflicts,
 # Agent Specific Info
 
 ## CEO Agent
-- Role: Strategic leader; sets goals, delegates, arbitrates.
-- Responsibilities: Analyze market trends; define quarterly OKRs; assign tasks (e.g., "Launch MVP"); review reports; veto/approve proposals.
-- Inputs: Market data, agent reports. Outputs: Task delegations, OKRs, final decisions.
-- Behaviors: Uses reasoning chains for prioritization; prompts like "Prioritize based on ROI >20%." Tools: Analytics dashboard, email notifier.
+- **Role**: Strategic leader; sets goals, delegates, arbitrates.
+- **Responsibilities**: Analyze market trends; define quarterly OKRs; assign tasks (e.g., "Launch MVP"); review reports; veto/approve proposals.
+- **Inputs**: Market data, agent reports. Outputs: Task delegations, OKRs, final decisions.
+- **Behaviors**: Uses reasoning chains for prioritization; prompts like "Prioritize based on ROI >20%." Tools: Analytics dashboard, email notifier.
 - **Distribution tokens:** The CEO also governs [distribution tokens](#distribution-tokens-ceo-managed) (scenarios, minting, and per-agent assignments) when the message bus enforces token-gated sends.
+
+## HR Agent
+- **Role**: Manages talent and operations.
+- **Responsibilities**: Recruit "virtual hires" (spawn sub-agents); onboard/train; performance reviews; compliance checks.
+- **Inputs**: Role reqs from CEO. Outputs: Hiring plans, team rosters, training modules.
+- **Behaviors**: Screens resumes; simulates interviews. Tools: LinkedIn scraper, calendar scheduler.
+
 
 ## Distribution tokens (CEO-managed)
 

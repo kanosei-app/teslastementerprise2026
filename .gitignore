@@ -10,8 +10,9 @@ test_bus_backlog.db
 demo_concurrent_topics.jsonl
 demo_concurrent_topics.db
 
-# MessageBus / enterprise local backlog
+# MessageBus / enterprise local backlog + JSONL audit (same paths for all agents)
 enterprise_backlog.db
+enterprise_message_bus.jsonl
 
 # Visual Studio
 .vs/

@@ -206,15 +206,8 @@ class MultiTopicAgentCoordinator:
 
 def _demo() -> None:
     """Run a small in-process demo: three topics, parallel sends, concurrent listeners."""
-    from agent_backlog import AgentBacklog
-
-    import os
-
-    here = os.path.dirname(os.path.abspath(__file__))
-    bus = MessageBus(
-        backlog=AgentBacklog(os.path.join(here, "demo_concurrent_topics.db")),
-        json_log_path=os.path.join(here, "demo_concurrent_topics.jsonl"),
-    )
+    # Uses the same enterprise backlog + JSONL as other agents (see enterprise_paths).
+    bus = MessageBus()
 
     lock = threading.Lock()
     received: Dict[str, List[str]] = {}
