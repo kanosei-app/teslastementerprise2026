@@ -40,7 +40,7 @@ class InterAgentMongoStore:
 
     def __init__(
         self,
-        mongo_uri: Optional[str] = "mongodb+srv://asu:pass123@mydeployment.onlk26z.mongodb.net/?appName=mongosh+2.8.2",
+        mongo_uri: Optional[str] = None, #TODO: find a way to securely link the real uri here without exposing it (want to avoid security leak)
         db_name: Optional[str] = None,
         *,
         mirror_backlog: Optional["AgentBacklog"] = None,
