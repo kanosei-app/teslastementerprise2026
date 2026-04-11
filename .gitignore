@@ -13,5 +13,5 @@ demo_concurrent_topics.db
 # MessageBus / enterprise local backlog
 enterprise_backlog.db
 
-# Visual Studio (auto-generated paths)
-/.vs/teslastementerprise2026.slnx/FileContentIndex
+# Visual Studio
+.vs/
