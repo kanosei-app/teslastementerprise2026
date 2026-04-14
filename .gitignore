@@ -17,5 +17,8 @@ enterprise_message_bus.jsonl
 # Visual Studio
 .vs/
 
+# Cursor IDE
+.cursor/
+
 # Secrets
 .env
