@@ -161,6 +161,35 @@ The table below is a **project default you can implement** with `CeoDistribution
 
 END PROCEDURE
 
+## Simulation Test: Process & Goals
+
+The `test_standard_scenario.py` script acts as our primary integration test for the entire multi-agent architecture. It simulates a high-stakes corporate initiative to verify that our internal agent economy, message routing, and persistence layers are working in harmony.
+
+### Primary Goals of the Test
+1. **Verify the Token Economy:** Ensure the `CeoDistributionTokenRegistry` correctly mints, allocates, and deducts tokens. The test verifies that the CEO can use standard tokens for individual delegations and successfully execute a higher-cost `EXECUTIVE_BROADCAST` token for the final decision.
+2. **Test Asynchronous Routing:** Confirm that the `MessageBus` correctly routes direct messages from the CEO to specific departments, as well as peer-to-peer messages (e.g., HR and Marketing sending cost data directly to Finance without CEO intervention).
+3. **Validate Schema Compliance:** Ensure every agent communicates using the strict JSON envelope schema without triggering formatting errors.
+4. **Confirm Dual-Persistence:** Verify that every transaction is simultaneously recorded to the cloud (MongoDB Atlas) and local storage (SQLite / JSONL).
+
+### The Execution Process
+When the simulation is triggered, the following workflow occurs automatically:
+1. **Central Bank Initialization:** The CEO mints a total supply of standard and broadcast tokens, transferring specific budgets to each department.
+2. **The Catalyst:** The CEO broadcasts initial directives to PM, Engineering, HR, Marketing, Sales, and Finance to begin the project.
+3. **Departmental Processing:** Agents process their directives. Sub-routines trigger HR and Marketing to send financial estimates to the Finance Agent.
+4. **Aggregation:** Finance calculates a strict ROI based on those inputs and routes the forecast back to the CEO. 
+5. **Executive Decision:** The CEO ingests the final data, verifies the minimum ROI threshold is met, and consumes an `EXECUTIVE_BROADCAST` token to announce the final "GO" decision.
+
+---
+
+## Running and Verifying in Git Bash
+
+If you are using Git Bash (or any standard Linux/Mac terminal), you can run the simulation and verify the outputs entirely via the command line.
+
+**1. Run the Simulation**
+Make sure your virtual environment is activated, then run the test as a Python module from the root directory:
+```bash
+python -m ceo-tests.test_standard_scenario
+
 # Instructions and Necessities
 
 ## Necessities
