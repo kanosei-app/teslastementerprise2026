@@ -1,46 +1,26 @@
-"""
-MongoDB persistence for inter-agent communication over HTTP APIs.
-
-Use this for messages that cross process/network boundaries. In-process routing
-continues to use SQLite via ``AgentBacklog`` and ``MessageBus`` (see ``agent_backlog.py``).
-
-Environment:
-  MONGO_URI                      — default mongodb://localhost:27017/
-  ENTERPRISE_MONGO_INTER_AGENT_DB — database name (default enterprise_inter_agent)
-
-Optional: pass ``mirror_backlog=AgentBacklog(...)`` to also write the same envelope
-into SQLite for a unified local audit trail (off by default to avoid duplicate rows
-when the in-process bus already records).
-"""
-
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, TYPE_CHECKING
 
+# We trust these imported functions to securely handle the .env logic now
 from enterprise_paths import inter_agent_mongo_db_name, inter_agent_mongo_uri
 from message_bus import normalize_envelope
 
 if TYPE_CHECKING:
     from agent_backlog import AgentBacklog
 
-
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
-
 
 class InterAgentMongoStore:
     """
     Stores envelopes and per-recipient FIFO inboxes in MongoDB.
-
-    Collections:
-      envelopes — one document per message id (unique), full envelope + metadata
-      inbox     — queued deliveries: recipient, envelope, enqueued_at
     """
 
     def __init__(
         self,
-        mongo_uri: Optional[str] = None, #TODO: find a way to securely link the real uri here without exposing it (want to avoid security leak)
+        mongo_uri: Optional[str] = None, 
         db_name: Optional[str] = None,
         *,
         mirror_backlog: Optional["AgentBacklog"] = None,
@@ -53,12 +33,17 @@ class InterAgentMongoStore:
                 "InterAgentMongoStore requires pymongo. Install: pip install pymongo"
             ) from e
 
+        # If a URI wasn't explicitly passed, call the function.
+        # The function will automatically check the .env file for us!
         uri = mongo_uri if mongo_uri is not None else inter_agent_mongo_uri()
         name = db_name if db_name is not None else inter_agent_mongo_db_name()
+
         self._mirror = mirror_backlog
         self._DuplicateKeyError = DuplicateKeyError
+        
         self._client = MongoClient(uri)
         self._db = self._client[name]
+        
         self._envelopes = self._db["envelopes"]
         self._inbox = self._db["inbox"]
         self._envelopes.create_index("id", unique=True)

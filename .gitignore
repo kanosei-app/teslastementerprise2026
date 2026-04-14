@@ -16,3 +16,6 @@ enterprise_message_bus.jsonl
 
 # Visual Studio
 .vs/
+
+# Secrets
+.env
