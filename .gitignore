@@ -22,3 +22,6 @@ enterprise_message_bus.jsonl
 
 # Secrets
 .env
+
+# Ignore the runtime audit log
+tesla_audit.jsonl
