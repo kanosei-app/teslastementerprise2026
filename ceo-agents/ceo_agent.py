@@ -3,6 +3,8 @@
 # This acts as the blueprint for ther CEO agent, which will be implemented in the main application
 
 # Import the logger from your custom logging file
+import datetime
+import uuid
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import requests
@@ -34,8 +36,18 @@ class CeoAgent(ThreadSafeAgentMixin):
         self.children_nearby_detected = False
         self.enforce_local_audio_only = True
         self.disallow_external_audio_storage = True
-        # The Link to your Dockerized Mistral
-        self.ollama_url = "http://localhost:11434/api/generate"
+        # Ollama API endpoints for Mistral.
+        self.ollama_chat_url = "http://localhost:11434/api/chat"
+        self.ollama_generate_url = "http://localhost:11434/api/generate"
+        self.model_name = "mistral"
+        self.chat_history: List[Dict[str, str]] = []
+        self.metrics: Dict[str, Any] = {
+            "tasks_per_agent": {},
+            "success_count": 0,
+            "failure_count": 0,
+            "last_cycle_duration_ms": None,
+            "last_cycle_started_at": None,
+        }
         self.logger.info(f"{self.name} Agent initialized and linked to Docker.")
 
     def update_environment_safety_signal(self, *, children_nearby: bool) -> None:
@@ -124,6 +136,11 @@ class CeoAgent(ThreadSafeAgentMixin):
         with self._agent_lock:
             return self._talk_to_engine_unlocked(prompt)
 
+    def chat_with_engine(self, user_message: str) -> Any:
+        """Chat-style call for CEO conversations using Ollama /api/chat."""
+        with self._agent_lock:
+            return self._chat_with_engine_unlocked(user_message)
+
     def gather_information(self, subordinate_agents: List[str]):
         """
         Restored: Compiles reports from all departments.
@@ -137,19 +154,147 @@ class CeoAgent(ThreadSafeAgentMixin):
         with self._agent_lock:
             return self._make_strategic_decision_unlocked(data)
 
+    def get_metrics(self) -> Dict[str, Any]:
+        """Return a safe snapshot of CEO runtime metrics."""
+        with self._agent_lock:
+            return self._metrics_snapshot_unlocked()
+
+    def execute_reasoning_loop(
+        self,
+        message: str,
+        subordinate_agents: Optional[List[str]] = None,
+        *,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Chat-like CEO flow:
+        - Receives a CEO request (user message)
+        - Delegates simulated tasks to subordinate agents
+        - Produces final summary
+        - Tracks success/failure + end-to-end cycle timing
+        """
+        with self._agent_lock:
+            started_at = datetime.datetime.now(datetime.timezone.utc)
+            self.metrics["last_cycle_started_at"] = started_at.strftime("%Y-%m-%dT%H:%M:%SZ")
+            context = context or {}
+            result: Dict[str, Any]
+            try:
+                self._refresh_child_signal_from_context_unlocked(context)
+                reroute = self._enforce_child_safety_gate_unlocked(
+                    operation="execute_reasoning_loop"
+                )
+                if reroute:
+                    self._record_failure_unlocked()
+                    result = {
+                        "ok": False,
+                        "agent": self.name,
+                        "message": message,
+                        "final_summary": "Request rerouted due to child-safety policy.",
+                        "reroute": reroute,
+                    }
+                    return result
+                self._enforce_local_audio_privacy_boundary_unlocked(
+                    context.get("audio_policy")
+                    if isinstance(context.get("audio_policy"), dict)
+                    else None
+                )
+
+                departments = subordinate_agents or [
+                    "PM Agent",
+                    "Engineering Agent",
+                    "Marketing Agent",
+                    "HR Agent",
+                    "Sales Agent",
+                    "Finance Agent",
+                ]
+                reports = self._gather_information_unlocked(departments)
+                strategic_decision = self._make_strategic_decision_unlocked(reports)
+                final_summary = self._chat_with_engine_unlocked(
+                    (
+                        "Create a concise executive summary from the CEO request, department "
+                        f"reports, and strategic decision.\n"
+                        f"CEO request: {message}\n"
+                        f"Department reports: {reports}\n"
+                        f"Strategic decision: {strategic_decision}"
+                    )
+                )
+                self._record_success_unlocked()
+                result = {
+                    "ok": True,
+                    "id": f"ceo-{uuid.uuid4().hex[:8]}",
+                    "agent": self.name,
+                    "message": message,
+                    "department_reports": reports,
+                    "strategic_decision": strategic_decision,
+                    "final_summary": final_summary,
+                }
+                return result
+            except Exception as exc:
+                self._record_failure_unlocked()
+                self.logger.exception("CEO reasoning loop failed: %s", exc)
+                result = {
+                    "ok": False,
+                    "agent": self.name,
+                    "message": message,
+                    "final_summary": f"Failed to complete CEO reasoning loop: {exc}",
+                }
+                return result
+            finally:
+                finished_at = datetime.datetime.now(datetime.timezone.utc)
+                elapsed_ms = int((finished_at - started_at).total_seconds() * 1000)
+                self.metrics["last_cycle_duration_ms"] = elapsed_ms
+                if "result" in locals():
+                    result["metrics"] = self._metrics_snapshot_unlocked()
+
     def _talk_to_engine_unlocked(self, prompt: str) -> Any:
         """Same as ``talk_to_engine`` without taking ``_agent_lock`` (for internal use under lock)."""
         payload = {
-            "model": "mistral",
+            "model": self.model_name,
             "prompt": prompt,
             "stream": False,
         }
         try:
-            response = requests.post(self.ollama_url, json=payload, timeout=20)
+            response = requests.post(self.ollama_generate_url, json=payload, timeout=20)
             response.raise_for_status()
-            return response.json().get("response")
+            data = response.json()
+            if not isinstance(data, dict):
+                return "Strategic Link Error: invalid response payload from Mistral."
+            return data.get("response")
         except requests.RequestException as e:
             return f"Strategic Link Error: Ensure Docker is running. {e}"
+        except ValueError as e:
+            return f"Strategic Link Error: invalid JSON payload returned. {e}"
+
+    def _chat_with_engine_unlocked(self, user_message: str) -> Any:
+        self.chat_history.append({"role": "user", "content": user_message})
+        payload = {
+            "model": self.model_name,
+            "messages": self.chat_history,
+            "stream": False,
+        }
+        try:
+            response = requests.post(self.ollama_chat_url, json=payload, timeout=25)
+            response.raise_for_status()
+            data = response.json()
+            if not isinstance(data, dict):
+                return "Strategic Link Error: invalid chat response payload from Mistral."
+            message_block = data.get("message")
+            if isinstance(message_block, dict):
+                assistant_reply = str(message_block.get("content") or "").strip()
+            else:
+                assistant_reply = str(data.get("response") or "").strip()
+            if not assistant_reply:
+                assistant_reply = "No response returned by Mistral chat endpoint."
+            self.chat_history.append({"role": "assistant", "content": assistant_reply})
+            return assistant_reply
+        except requests.RequestException as e:
+            err = f"Strategic Link Error: Ensure Docker is running. {e}"
+            self.chat_history.append({"role": "assistant", "content": err})
+            return err
+        except ValueError as e:
+            err = f"Strategic Link Error: invalid JSON payload returned. {e}"
+            self.chat_history.append({"role": "assistant", "content": err})
+            return err
 
     def oversee_company(self, subordinate_agents, context: Optional[Dict[str, Any]] = None):
         """The main workflow loop."""
@@ -240,6 +385,8 @@ class CeoAgent(ThreadSafeAgentMixin):
 
     def _gather_information_unlocked(self, subordinate_agents: List[str]) -> List[str]:
         self.logger.info("Initiating information gathering from departments...")
+        for agent in subordinate_agents:
+            self._record_task_for_agent_unlocked(agent)
         gathered_data = [
             f"Status report from {agent}: All systems operational."
             for agent in subordinate_agents
@@ -258,6 +405,31 @@ class CeoAgent(ThreadSafeAgentMixin):
         decision = self._talk_to_engine_unlocked(prompt)
         self.logger.warning(f"Strategic Decision Executed: {decision}")
         return decision
+
+    def _record_task_for_agent_unlocked(self, agent_name: str) -> None:
+        safe_name = str(agent_name or "unknown")
+        tasks = self.metrics.get("tasks_per_agent")
+        if not isinstance(tasks, dict):
+            tasks = {}
+            self.metrics["tasks_per_agent"] = tasks
+        tasks[safe_name] = int(tasks.get(safe_name, 0)) + 1
+
+    def _record_success_unlocked(self) -> None:
+        self.metrics["success_count"] = int(self.metrics.get("success_count", 0)) + 1
+
+    def _record_failure_unlocked(self) -> None:
+        self.metrics["failure_count"] = int(self.metrics.get("failure_count", 0)) + 1
+
+    def _metrics_snapshot_unlocked(self) -> Dict[str, Any]:
+        tasks = self.metrics.get("tasks_per_agent")
+        safe_tasks = dict(tasks) if isinstance(tasks, dict) else {}
+        return {
+            "tasks_per_agent": safe_tasks,
+            "success_count": int(self.metrics.get("success_count", 0)),
+            "failure_count": int(self.metrics.get("failure_count", 0)),
+            "last_cycle_duration_ms": self.metrics.get("last_cycle_duration_ms"),
+            "last_cycle_started_at": self.metrics.get("last_cycle_started_at"),
+        }
 
     def on_bus_envelope(self, envelope: Dict[str, Any]) -> Any:
         """
@@ -292,6 +464,36 @@ class CeoAgent(ThreadSafeAgentMixin):
             if not isinstance(departments, list):
                 departments = []
             return self.gather_information([str(x) for x in departments])
+
+        if task == "CEO_CHAT":
+            user_message = str(payload.get("message") or payload.get("prompt") or "")
+            reply = self.chat_with_engine(user_message)
+            return {
+                "ok": True,
+                "agent": self.name,
+                "task_type": task,
+                "reply": reply,
+                "history_length": len(self.chat_history),
+            }
+
+        if task == "CEO_REASONING_LOOP":
+            departments = payload.get("departments") or payload.get("subordinate_agents") or []
+            if not isinstance(departments, list):
+                departments = []
+            message = str(payload.get("message") or payload.get("prompt") or "")
+            return self.execute_reasoning_loop(
+                message,
+                [str(x) for x in departments] if departments else None,
+                context=payload,
+            )
+
+        if task == "CEO_METRICS":
+            return {
+                "ok": True,
+                "agent": self.name,
+                "task_type": task,
+                "metrics": self.get_metrics(),
+            }
 
         return {
             "ok": True,
