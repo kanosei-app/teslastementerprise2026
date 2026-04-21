@@ -3,8 +3,6 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, TYPE_CHECKING
 
-from distro import name
-
 # We trust these imported functions to securely handle the .env logic now
 from enterprise_paths import inter_agent_mongo_db_name, inter_agent_mongo_uri
 from message_bus import normalize_envelope
