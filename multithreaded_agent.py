@@ -25,7 +25,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from message_bus import MessageBus
 
-from .thread_safe_agent import SupportsBusRegistration
+from thread_safe_agent import SupportsBusRegistration
 
 TopicHandler = Callable[[Dict[str, Any]], None]
 

@@ -4,7 +4,7 @@ from typing import Any, Dict
 
 from agent_logger import get_agent_logger, log_inter_agent_message
 
-from .thread_safe_agent import ThreadSafeAgentMixin
+from thread_safe_agent import ThreadSafeAgentMixin
 
 
 class AdvisorAgent(ThreadSafeAgentMixin):

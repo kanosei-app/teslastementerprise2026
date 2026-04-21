@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 import requests
 from agent_logger import get_agent_logger
 
-from .thread_safe_agent import ThreadSafeAgentMixin
+from thread_safe_agent import ThreadSafeAgentMixin
 
 if TYPE_CHECKING:
     from ceo_distribution_tokens import CeoDistributionTokenRegistry

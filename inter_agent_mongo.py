@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, TYPE_CHECKING
 
+from distro import name
+
 # We trust these imported functions to securely handle the .env logic now
 from enterprise_paths import inter_agent_mongo_db_name, inter_agent_mongo_uri
 from message_bus import normalize_envelope
@@ -40,10 +42,17 @@ class InterAgentMongoStore:
 
         self._mirror = mirror_backlog
         self._DuplicateKeyError = DuplicateKeyError
+
+        # Check character limitbefore connecting
+        if len(name) > 38:
+            raise ValueError(
+                f"Database name '{name}' is {len(name)} chars. "
+                f"MongoDB Atlas limit is 38. Please shorten your ENTERPRISE_MONGO_INTER_AGENT_DB env var."
+            )
         
         self._client = MongoClient(uri)
         self._db = self._client[name]
-        
+
         self._envelopes = self._db["envelopes"]
         self._inbox = self._db["inbox"]
         self._envelopes.create_index("id", unique=True)
