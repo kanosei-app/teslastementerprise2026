@@ -185,10 +185,15 @@ When the simulation is triggered, the following workflow occurs automatically:
 
 If you are using Git Bash (or any standard Linux/Mac terminal), you can run the simulation and verify the outputs entirely via the command line.
 
-**Run the Simulation**
-Make sure your virtual environment is activated, then run the test as a Python module from the root directory:
+**Run All Simulations**
+Make sure your virtual environment is activated, then run the tests as Python modules using pytest:
 
-`python -m ceo-tests.test_standard_scenario`
+`python -m pytest`
+
+**Run Specific Simulation**
+For running a specific simulation, run the test as a Python module:
+
+`python -m standard_scenario_test`
 
 # Instructions and Necessities
 
