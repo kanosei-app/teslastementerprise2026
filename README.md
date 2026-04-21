@@ -163,7 +163,7 @@ END PROCEDURE
 
 ## Simulation Test: Process & Goals
 
-The `test_standard_scenario.py` script acts as our primary integration test for the entire multi-agent architecture. It simulates a high-stakes corporate initiative to verify that our internal agent economy, message routing, and persistence layers are working in harmony.
+The `standard_scenario_test.py` script acts as our primary integration test for the entire multi-agent architecture. It simulates a high-stakes corporate initiative to verify that our internal agent economy, message routing, and persistence layers are working in harmony.
 
 ### Primary Goals of the Test
 1. **Verify the Token Economy:** Ensure the `CeoDistributionTokenRegistry` correctly mints, allocates, and deducts tokens. The test verifies that the CEO can use standard tokens for individual delegations and successfully execute a higher-cost `EXECUTIVE_BROADCAST` token for the final decision.
@@ -185,12 +185,12 @@ When the simulation is triggered, the following workflow occurs automatically:
 
 If you are using Git Bash (or any standard Linux/Mac terminal), you can run the simulation and verify the outputs entirely via the command line.
 
-**Run All Simulations**
+### Run All Simulations
 Make sure your virtual environment is activated, then run the tests as Python modules using pytest:
 
 `python -m pytest`
 
-**Run Specific Simulation**
+### Run Specific Simulation
 For running a specific simulation, run the test as a Python module:
 
 `python -m standard_scenario_test`
