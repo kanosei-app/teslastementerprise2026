@@ -30,8 +30,9 @@ def store():
 
     if not _mongo_reachable():
         pytest.skip("MongoDB not reachable (start mongod or set MONGO_URI)")
+    # Atlas enforces max DB name length of 38 bytes.
     s = InterAgentMongoStore(
-        db_name=f"test_inter_agent_{uuid.uuid4().hex}",
+        db_name=f"tia_{uuid.uuid4().hex[:16]}",
     )
     yield s
     s._client.drop_database(s._db.name)
