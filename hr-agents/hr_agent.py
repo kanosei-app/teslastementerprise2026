@@ -1,6 +1,6 @@
-from concurrent.futures import thread
 import sys
 import threading
+import time
 from pathlib import Path
 
 from langchain.tools import tool  # pyright: ignore[reportMissingImports]
@@ -15,125 +15,58 @@ if str(_ROOT) not in sys.path:
 from agent_backlog import AgentBacklog
 
 agentBacklog = AgentBacklog()
-
 from langgraph.pregel.main import Output  # pyright: ignore[reportMissingImports]
 
-PARSER_AGENT_PROMPT = (
-    "You are a parser agent."
-    "You assist in the management and parsing of various files, primarily json files."
-    "Extract data from the necessary files."
-    "Compile the data from the files into one clear plan of action."
-    "The plan of action which you output must be written in English and conform to the standards of modern English."
-    "Output the plan of action to the user based upon the data from the files."
-    "Within the plan of action, you may include the following actions: hire agents, fire agents. You may ONLY use these actions."
-    "You may use the data returned from various tools in your response."
-    "Make sure that the plan of action does not include any tasks which are not included in the files."
-    )
+# Use the shared Mongo-backed inter-agent store (same DB used by CEO)
+from inter_agent_mongo import inter_agent_store_from_env
+from datetime import datetime, timezone
+import uuid
+from message_bus import MessageBus
 
-SUPERVISOR_AGENT_PROMPT = (
-    "You are a supervisor agent for human resources."
-    "You recieve instrusctions in the form of json files and must perform the actions required by the files"
-    "Use the different agents at your disposal to complete your tasks."
-    "Once the task is finished, output a confirmation and log of what was done."
-    "Any messages must be written in English and conform to the standards of modern English."
-    "You may use the data returned from various tools in your response."
-    "Make sure no tasks are done which were not specified in the files."
-    )
-
-EMPLOYEE_MANAGEMENT_AGENT_PROMPT = (
-    "You are a employee management agent for human resources."
-    "You recieve instrusctions from the supervisor agent to hire or fire agents."
-    "Use the different tools at your disposal to complete your tasks."
-    "Output the result of your employee management."
-    "Any messages must be written in English and conform to the standards of modern English."
-    "You may use the data returned from various tools in your response."
-    "Make sure no tasks are done which were not specified by the supervisor agent."
-    )
+inter_store = inter_agent_store_from_env(mirror_sqlite=False)
+message_bus = MessageBus(backlog=agentBacklog)
 
 @tool
-def parseJson(path: str):
+def request_mint_tokens(scenario_id: str, quantity: int, holder: str = "HR") -> str:
     """
-    Take in the path to a json file as input.
-    Output the parsed json file.
+    Tool: ask the CEO agent to mint distribution tokens for a given scenario and holder.
     """
-    with open(path, "r") as file:
-        data = json.load(file)
+    # Build an envelope addressed to the CEO so the CEO agent can handle the mint request.
+    envelope = {
+        "id": f"mint-{uuid.uuid4().hex[:8]}",
+        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "sender": "HR",
+        "recipient": "CEO",
+        "task_type": "MINT_TOKENS",
+        "context": {},
+        "payload": {"scenario_id": scenario_id, "quantity": quantity, "holder": holder},
+        "status": "pending",
+        "error": "",
+    }
+    result = inter_store.record_and_enqueue(envelope)
+    return f"Mint request queued: {result}"
 
-    return data
-
-@tool
-def fireAgents(number: int, type: str):
-    """
-    Take in a number of agents and type of agents to fire.
-    Fire the agents specified
-    Return the number of agents and agent types fired
-    """
-    #Method stub - to be implemented
-    agentBacklog.record_log("req-001", "HR", "fired", {"number": number, "type": type})
-    return str(number) + " " + type + " agents fired."
-
-@tool
-def hireAgents(number: int, type: str):
-    """
-    Take in a number of agents and type of agents to hire.
-    Hire the agents specified
-    Return the number of agents and agent types hired
-    """
-    #Method stub - to be implemented
-    agentBacklog.record_log("req-001", "HR", "hired", {"number": number, "type": type})
-    return str(number) + " " + type + " agents hired."
-
-@tool
-def callParserAgent(query: str):
-    """
-    Invokes a parser agent with a given query
-    Outputs the parser agent's response
-    """
-    result = parserAgent.invoke({"messages": [{"role": "user", "content": query}]})
-    return result["messages"][-1].content
-
-@tool
-def callEmployeeManagementAgent(query: str):
-    """
-    Invokes an employee management agent with a given query
-    Outputs the employee management agent's response
-    """
-    result = employeeManagementAgent.invoke({"messages": [{"role": "user", "content": query}]})
-    return result["messages"][-1].content
-
-
-def getTokens(agentType: str):
-    """
-    Given an agent type, output the maximum number of tokens that agent type can use.
-    Agent types are: HR, PM
-    """
-    with open("agent_specs.json", "r") as file:
-        data = json.load(file)
-        return data["max_tokens"][agentType]
-
-@tool
-def setTokens(agentType: str, number: int):
-    """
-    Given an agent type, output the maximum number of tokens that agent type can use.
-    Agent types are: HR, PM
-    """
-    with open("agent_specs.json", "r+") as file:
-        data = json.load(file)
-        data["max_tokens"].update({agentType: number})
-        file.seek(0)
-        json.dump(data, file, indent=4)
-        file.truncate()
-        return
 
 def callSupervisor(query):
+    """
+    Minimal supervisor handler: mark task in progress and done around processing.
+    Actual task processing is handled by hr worker threads that poll the message bus.
+    """
     agentBacklog.update_status(query["id"], "in_progress")
-    create_agent(model=ChatOllama(
-        model="gpt-oss:20b",
-        max_tokens=getTokens("HR")).bind_tools(
-    [callEmployeeManagementAgent, callParserAgent]), tools=
-    [callEmployeeManagementAgent, callParserAgent], 
-    system_prompt=SUPERVISOR_AGENT_PROMPT).invoke(query)
-    agentBacklog.update_status(query["id"], "done")
+    # Create an HR agent (Ollama / "mistral") with the request_mint_tokens tool bound
+    hr_agent = create_agent(
+        model=ChatOllama(model="mistral").bind_tools([request_mint_tokens]),
+        tools=[request_mint_tokens],
+        system_prompt=("You are an HR agent. Use the provided tools to request token minting from the CEO."),
+    )
+    try:
+        # Invoke the agent with the incoming query envelope
+        hr_agent.invoke(query)
+    except:
+        agentBacklog.update_status(query["id"], "failed")
+        return;
+    finally:
+        agentBacklog.update_status(query["id"], "done")
 
 sample_message = {
     "id": "req-001",
@@ -151,19 +84,44 @@ sample_message = {
     "status": "pending",
     "error": ""
 }
+# Insert the sample message into the shared Mongo inbox so HR workers can pick it up
+inter_store.record_and_enqueue(sample_message)
 
-# Never clear_backlog() here — it would wipe the shared enterprise DB used by all agents.
-setTokens("PM", 999)
-agentBacklog.record_interaction(sample_message)
 
-# Create subagents
-parserAgent = create_agent(model=ChatOllama(model="gpt-oss:20b").bind_tools([parseJson]), tools=[parseJson], system_prompt=PARSER_AGENT_PROMPT)
-employeeManagementAgent = create_agent(model=ChatOllama(model="gpt-oss:20b").bind_tools([hireAgents, fireAgents]), tools=[hireAgents, fireAgents, setTokens], system_prompt=EMPLOYEE_MANAGEMENT_AGENT_PROMPT)
+def hr_worker(worker_id: int, stop_event: threading.Event):
+    """Poll the message bus for HR messages and process them."""
+    name = f"HR-Worker-{worker_id}"
+    while not stop_event.is_set():
+        envelope = message_bus.receive("HR")
+        if envelope is None:
+            # no messages, sleep briefly
+            time.sleep(0.5)
+            continue
+        try:
+            print(f"{name} picked up message {envelope.get('id')}")
+            callSupervisor(envelope)
+            print(f"{name} finished message {envelope.get('id')}")
+        except Exception as exc:
+            print(f"{name} failed to process {envelope.get('id')}: {exc}")
 
-while(True):
-    pending = agentBacklog.get_pending_interactions()
-    for request in pending:
-        if(threading.active_count() > 2):
-            break
-        t = threading.Thread(target=callSupervisor, args=(request,))
+
+def main(num_workers: int = 3):
+    stop_event = threading.Event()
+    threads = []
+    for i in range(num_workers):
+        t = threading.Thread(target=hr_worker, args=(i + 1, stop_event), daemon=True)
         t.start()
+        threads.append(t)
+    try:
+        # keep main thread alive while workers run
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("Shutting down HR workers...")
+        stop_event.set()
+        for t in threads:
+            t.join(timeout=1)
+
+
+if __name__ == "__main__":
+    main(num_workers=4)
